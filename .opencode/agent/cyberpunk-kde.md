@@ -98,6 +98,8 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 - Anonymous avatar (neon helmet, no face): make an SVG, convert to PNG 256:
   `rsvg-convert -w 256 -h 256 avatar.svg -o ~/.face.icon && cp ~/.face.icon ~/.face`
   SDDM reads `~/.face.icon` automatically; the kubuntu theme draws it in a circle with a neon border (built-in shader in `components/UserDelegate.qml`).
+- CRITICAL — the lock screen and KDE user menu read the avatar from AccountsService, not from `~/.face.icon` (they keep showing the OLD icon otherwise):
+  `sudo cp ~/.face.icon /var/lib/AccountsService/icons/$USER && sudo chown root:root /var/lib/AccountsService/icons/$USER && sudo chmod 644 /var/lib/AccountsService/icons/$USER`
 - Enable theme — CRITICAL gotchas:
   - SDDM merges `/etc/sddm.conf` + ALL files in `/etc/sddm.conf.d/` in ALPHABETICAL order; last key wins.
   - NEVER keep backups inside `/etc/sddm.conf.d/` (a `kde_settings.conf.bak.cyber` with old `Current=kubuntu` silently overrides your theme). Keep backups in `/root/`.
@@ -120,7 +122,8 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 7. Check errors: `journalctl -b | grep -iE 'kwin|kscreenlocker|plasma|sddm' | grep -iE 'error|fail'`.
 8. `~/.bashrc` may set `QT_STYLE_OVERRIDE=""` — overrides Kvantum for shells.
 9. SDDM reads ALL files in `/etc/sddm.conf.d/` alphabetically — any backup named `*.conf*` there overrides settings. Verify with: `strace -f -e openat sddm --test-mode 2>&1 | grep sddm.conf.d`.
-10. Duplicated panel widgets (e.g. lock/logout, clock twice): a widget id listed TWICE in `[Containments][<panel>][General] AppletOrder=...` in `~/.config/plasma-org.kde.plasma.desktop-appletsrc` renders twice. Remove the duplicate id from the config, then restart plasmashell. NEVER remove duplicates via the GUI — it can wipe the whole panel.
+10. Lock screen / KDE user menu shows the WRONG (old) avatar: icon comes from `/var/lib/AccountsService/icons/<user>` — overwrite it from `~/.face.icon` (sec. 8).
+11. Duplicated panel widgets (e.g. lock/logout, clock twice): a widget id listed TWICE in `[Containments][<panel>][General] AppletOrder=...` in `~/.config/plasma-org.kde.plasma.desktop-appletsrc` renders twice. Remove the duplicate id from the config, then restart plasmashell. NEVER remove duplicates via the GUI — it can wipe the whole panel.
 
 ## 10. Rollback
 - Lock clock: `sudo cp /root/Clock.qml.breeze.bak <original path>`
