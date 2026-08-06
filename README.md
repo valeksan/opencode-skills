@@ -11,19 +11,20 @@
 ### 1. cyberpunk-kde — неоновая кастомизация KDE Plasma
 **Что делает:** превращает KDE Plasma 5.27 (X11) на Ubuntu 24.04 в киберпанк-рабочий стол в неоновой гамме (акцент `#00ffcc`):
 
-### 📸 Галерея
+### 📸 Галерея (нажми на картинку, чтобы увеличить)
 
-Рабочий стол:
-
-![Киберпанк рабочий стол](assets/cyberpunk-kde.png)
-
-Экран входа (SDDM):
-
-![Неоновый экран входа SDDM](assets/cyberpunk-sddm.png)
-
-Экран блокировки:
-
-![Неоновая блокировка экрана](assets/cyberpunk-lockscreen.png)
+<table>
+  <tr>
+    <td align="center"><a href="assets/cyberpunk-kde.png"><img src="assets/cyberpunk-kde-thumb.png" alt="Киберпанк рабочий стол" width="300"/></a></td>
+    <td align="center"><a href="assets/cyberpunk-sddm.png"><img src="assets/cyberpunk-sddm-thumb.png" alt="Неоновый экран входа SDDM" width="300"/></a></td>
+    <td align="center"><a href="assets/cyberpunk-lockscreen.png"><img src="assets/cyberpunk-lockscreen-thumb.png" alt="Неоновая блокировка экрана" width="300"/></a></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Рабочий стол</sub></td>
+    <td align="center"><sub>Экран входа (SDDM)</sub></td>
+    <td align="center"><sub>Экран блокировки</sub></td>
+  </tr>
+</table>
 
 - 🖼️ Обои-ротация каждые 10 мин (systemd-таймер)
 - 🍔 Иконка и компактное меню Kickoff
