@@ -2,7 +2,7 @@
 
 Персональный набор навыков (агентов) для **opencode** — готовые инструкции-агенты, которые превращают стандартную систему в настроенную под тебя, фирменную и «вылизанную». Каждый навык — это проверенный на практике плейбук с точными командами: ставь на новую машину и получай тот же результат.
 
-Сейчас в коллекции **1 навык** — киберпанк-кастомизация KDE Plasma.
+Сейчас в коллекции **1 навык** — киберпанк-кастомизация KDE Plasma (включая Conky system monitor).
 
 ---
 
@@ -18,11 +18,13 @@
     <td align="center"><a href="assets/cyberpunk-kde.png"><img src="assets/cyberpunk-kde-thumb.png" alt="Киберпанк рабочий стол" width="300"/></a></td>
     <td align="center"><a href="assets/cyberpunk-sddm.png"><img src="assets/cyberpunk-sddm-thumb.png" alt="Неоновый экран входа SDDM" width="300"/></a></td>
     <td align="center"><a href="assets/cyberpunk-lockscreen.png"><img src="assets/cyberpunk-lockscreen-thumb.png" alt="Неоновая блокировка экрана" width="300"/></a></td>
+    <td align="center"><a href="assets/cyberpunk-conky.png"><img src="assets/cyberpunk-conky-thumb.png" alt="Cyberpunk Conky system monitor" width="300"/></a></td>
   </tr>
   <tr>
     <td align="center"><sub>Рабочий стол</sub></td>
     <td align="center"><sub>Экран входа (SDDM)</sub></td>
     <td align="center"><sub>Экран блокировки</sub></td>
+    <td align="center"><sub>Conky system monitor</sub></td>
   </tr>
 </table>
 
@@ -34,6 +36,7 @@
 - 💻 Неоновый PS1 в Konsole с git-статусом
 - 🔒 Экран блокировки: кибер-обои + светящиеся часы
 - 🔑 Экран входа SDDM: неоновая тема + обезличенная кибер-аватарка
+- 📊 Conky system monitor: CPU/GPU temps, VRAM, disk/network graphs, Docker, color-coded load
 - 🛠️ Чинит дубликаты виджетов панели, даёт откаты и чек-лист проверок
 
 **Файл:** `.opencode/agent/cyberpunk-kde.md`

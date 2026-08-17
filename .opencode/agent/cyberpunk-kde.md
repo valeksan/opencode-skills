@@ -1,5 +1,5 @@
 ---
-description: "Cyberpunk KDE Plasma customizer. Transforms any KDE Plasma 5.x (X11) desktop into a neon/cyberpunk theme: wallpapers, Kvantum, accent color, Aurorae window decoration, neon lock screen clock, neon PS1, neon SDDM login screen with anonymous avatar, panel widget deduplication. Use when the user asks to apply, redo, or fix a cyberpunk look on KDE, customize the SDDM/login screen or the lock screen, fix duplicated panel widgets, or mentions cyberpunk/KDE customization."
+description: "Cyberpunk KDE Plasma customizer. Transforms any KDE Plasma 5.x (X11) desktop into a neon/cyberpunk theme: wallpapers, Kvantum, accent color, Aurorae window decoration, neon lock screen clock, neon PS1, neon SDDM login screen with anonymous avatar, panel widget deduplication, cyberpunk Conky system monitor. Use when the user asks to apply, redo, or fix a cyberpunk look on KDE, customize the SDDM/login screen or the lock screen, fix duplicated panel widgets, set up Conky with cyberpunk styling, or mentions cyberpunk/KDE customization."
 mode: subagent
 permission:
   edit: allow
@@ -112,7 +112,65 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
   - NOTE: plain `sddm --test-mode` ignores the config and picks its own default theme — always pass `--theme` explicitly via `sddm-greeter` on Xephyr.
 - Apply: `sudo systemctl restart sddm` (closes current session — warn the user!).
 
-## 9. Troubleshooting cheatsheet
+## 9. Conky: cyberpunk system monitor
+- Install: `sudo apt install -y conky-all`
+- Config: `~/.config/conky/cyberpunk.conf`
+- Autostart: `~/.config/autostart/conky-cyberpunk.desktop`
+
+### Visual theme
+- **Font**: JetBrains Mono (sizes 7-26 depending on element)
+- **Colors**: cyan `#00ffcc` (primary), magenta `#ff00ff` (headers), blue `#00aaff` (labels), dim gray `#888888` (secondary), dark bg `#0a0e1a`, border lines `#003344` / `#001a33`
+- **Background**: ARGB, `own_window_argb_value = 13` (95% transparent, text floats over wallpaper)
+- **Window type**: `dock` (stays below panels, above desktop icons)
+- **Window hints**: `undecorated,below,sticky,skip_taskbar,skip_pager,above`
+
+### CPU load color coding (stays in cyberpunk palette)
+```
+${if_match ${cpu} > 80}${color ff00ff}...      # magenta when hot
+${else}${if_match ${cpu} > 50}${color 8844ff}...  # purple when warm
+${else}${color 00ffcc}...                         # cyan when cool
+${endif}${endif}
+```
+Apply same color to `%` text and `cpubar`. Keeps palette consistent — never green/yellow/red.
+
+### Widgets included
+1. **Clock** — `time %H:%M:%S` bold size 26, date size 12
+2. **CPU** — total bar + per-core % text (compact 3-line grid) + `cpugraph` (22×50 px)
+3. **GPU** — load %, temp, fan RPM, power (PPT), VRAM bar (`mem_info_vram_used/total` via sysfs + `execbar`)
+4. **Temperatures** — CPU Tctl, GPU edge, motherboard
+5. **Memory** — RAM bar + swap
+6. **Disk** — usage bar + R/W speed + `diskiograph` (20×35 px)
+7. **Network** — IP per interface + `downspeedgraph`/`upspeedgraph` (20×50 px each) + total
+8. **Docker** — running containers list via `${exec docker ps --format ...}`, or "no containers" via `${if_empty}`
+9. **System** — uptime, kernel, top CPU process, top RAM process, process count
+
+### Key Conky syntax for this config
+- `${execbar expr}` — progress bar from shell expression (0-100)
+- `${execi N cmd}` — run command every N seconds (cache-heavy commands)
+- `${cpugraph W×H color1 color2}` — CPU load graph
+- `${downspeedgraph iface W×H color1 color2}` — network download graph
+- `${diskiograph W×H color1 color2}` — disk I/O graph
+- `${if_match ${var} > N}...${else}...${endif}` — conditional rendering
+- `${if_empty "${exec cmd}"}...${else}...${endif}` — check if command output is empty
+
+### GPU VRAM via sysfs
+```
+/sys/class/drm/card0/device/mem_info_vram_used   # bytes
+/sys/class/drm/card0/device/mem_info_vram_total   # bytes
+/sys/class/drm/card0/device/gpu_busy_percent      # 0-100
+```
+Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
+
+### Gotchas
+1. `${if_match}` comparisons fail silently if quotes mismatch — test with `${exec echo}` first.
+2. `execbar` expects 0-100 output; shell math must produce a plain number.
+3. `${exec docker ...}` returns empty when Docker is stopped — always wrap in `${if_empty}`.
+4. `cpugraph` without CPU number = all CPUs averaged; `cpugraph 0` = CPU0 only.
+5. Window height depends on content — add/remove widgets to fit screen. Check with `xdotool getwindowgeometry`.
+6. `own_window_type = 'dock'` positions relative to gap_x/gap_y but multi-monitor needs xdotool to move.
+7. JetBrains Mono must be installed (`sudo apt install -y fonts-jetbrainsmono`); fallback fonts render ugly.
+
+## 10. Troubleshooting cheatsheet
 1. `plasma-apply-wallpaperimage` resets wallpaper plugin to image — reorder ops or re-apply slideshow after.
 2. Slideshow from raw config unreliable -> systemd timer.
 3. Kickoff icon must be in `[Configuration][General]`, not root `[Configuration]`.
@@ -125,7 +183,7 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 10. Lock screen / KDE user menu shows the WRONG (old) avatar: icon comes from `/var/lib/AccountsService/icons/<user>` — overwrite it from `~/.face.icon` (sec. 8).
 11. Duplicated panel widgets (e.g. lock/logout, clock twice): a widget id listed TWICE in `[Containments][<panel>][General] AppletOrder=...` in `~/.config/plasma-org.kde.plasma.desktop-appletsrc` renders twice. Remove the duplicate id from the config, then restart plasmashell. NEVER remove duplicates via the GUI — it can wipe the whole panel.
 
-## 10. Rollback
+## 11. Rollback
 - Lock clock: `sudo cp /root/Clock.qml.breeze.bak <original path>`
 - Lock config: `~/.config/kscreenlockerrc.bak`
 - Panel config: `~/.config/plasma-org.kde.plasma.desktop-appletsrc.bak`
@@ -140,5 +198,5 @@ rm -f ~/.face ~/.face.icon
 sudo systemctl restart sddm
 ```
 
-## 11. Final report
+## 12. Final report
 When done, summarize: what was changed, what to verify visually (accent cyan, neon window frame on Dolphin/Konsole, neon lock clock, PS1, neon SDDM login with anonymous avatar), backups created, and any steps needing logout/reboot.
