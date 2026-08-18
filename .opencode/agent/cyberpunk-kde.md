@@ -113,9 +113,18 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 - Apply: `sudo systemctl restart sddm` (closes current session — warn the user!).
 
 ## 9. Conky: cyberpunk system monitor
-- Install: `sudo apt install -y conky-all`
+- Install: `sudo apt install -y conky-all fonts-jetbrainsmono`
 - Config: `~/.config/conky/cyberpunk.conf`
-- Autostart: `~/.config/autostart/conky-cyberpunk.desktop`
+- Launcher script: `~/.config/conky/start-cyberpunk.sh`
+- Systemd services: `~/.config/systemd/user/conky-cyberpunk.service` + `conky-screen-watcher.service`
+
+### Installation steps (in order)
+1. Install packages.
+2. Create `~/.config/conky/cyberpunk.conf` (see Visual theme).
+3. Create `~/.config/conky/start-cyberpunk.sh` (see Universal monitor detection).
+4. Create systemd services (see Autostart).
+5. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk conky-screen-watcher`.
+6. Verify: `pgrep -a conky` shows ONE process, `xdotool getwindowgeometry $(xdotool search --class "Conky" | head -1)` shows correct monitor.
 
 ### Visual theme
 - **Font**: JetBrains Mono (sizes 7-26 depending on element)
@@ -123,6 +132,7 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 - **Background**: ARGB, `own_window_argb_value = 13` (95% transparent, text floats over wallpaper)
 - **Window type**: `dock` (stays below panels, above desktop icons)
 - **Window hints**: `undecorated,below,sticky,skip_taskbar,skip_pager,above`
+- **Multi-monitor**: use `-m N` flag (Xinerama head index), NOT `alignment` + xdotool. `-m` renders directly on target monitor with NO flash on primary.
 
 ### CPU load color coding (stays in cyberpunk palette)
 ```
@@ -135,16 +145,104 @@ Apply same color to `%` text and `cpubar`. Keeps palette consistent — never gr
 
 ### Widgets included
 1. **Clock** — `time %H:%M:%S` bold size 26, date size 12
-2. **CPU** — total bar + per-core % text (compact 3-line grid) + `cpugraph` (22×50 px)
+2. **CPU** — total bar + per-core % text (compact grid) + `cpugraph`
 3. **GPU** — load %, temp, fan RPM, power (PPT), VRAM bar (`mem_info_vram_used/total` via sysfs + `execbar`)
 4. **Temperatures** — CPU Tctl, GPU edge, motherboard
 5. **Memory** — RAM bar + swap
-6. **Disk** — usage bar + R/W speed + `diskiograph` (20×35 px)
-7. **Network** — IP per interface + `downspeedgraph`/`upspeedgraph` (20×50 px each) + total
+6. **Disk** — usage bar + R/W speed + `diskiograph`
+7. **Network** — IP per interface + `downspeedgraph`/`upspeedgraph` + total
 8. **Docker** — running containers list via `${exec docker ps --format ...}`, or "no containers" via `${if_empty}`
 9. **System** — uptime, kernel, top CPU process, top RAM process, process count
 
-### Key Conky syntax for this config
+### Universal monitor detection (start-cyberpunk.sh)
+Conky should always appear on the RIGHTMOST monitor, regardless of setup.
+DO NOT hardcode monitor index or use xdotool to move windows.
+Use `-m N` flag where N is detected at launch time.
+
+```bash
+#!/bin/bash
+# Cyberpunk Conky — always on the RIGHTMOST monitor
+
+# Find rightmost monitor index from xrandr
+RIGHTMOST=$(xrandr --listmonitors 2>/dev/null | awk '
+    /:/ {
+        idx = $1
+        for (i=1; i<=NF; i++) {
+            if (match($i, /\+[0-9]+\+[0-9]+/)) {
+                split($i, pos, "+")
+                x = pos[2]
+                if (x+0 > max_x+0) { max_x = x; best = idx }
+            }
+        }
+    }
+    END { print best+0 }
+')
+[ -z "$RIGHTMOST" ] && RIGHTMOST=0
+
+conky -c ~/.config/conky/cyberpunk.conf -m "$RIGHTMOST" -d
+```
+
+### Autostart (systemd, NOT .desktop)
+DO NOT use `~/.config/autostart/*.desktop` for Conky — KDE/systemd treats it as a separate autostart entry and launches a SECOND Conky instance. Use systemd user services instead.
+
+**`~/.config/systemd/user/conky-cyberpunk.service`:**
+```ini
+[Unit]
+Description=Cyberpunk Conky system monitor
+After=graphical-session.target
+
+[Service]
+Type=forking
+ExecStart=/home/$USER/.config/conky/start-cyberpunk.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
+```
+
+### Screen change watcher (monitor hotplug)
+KDE emits `org.kde.kscreen.Backend.configChanged` DBus signal on screen changes.
+A lightweight listener restarts Conky on the rightmost monitor after debounce.
+
+**`~/.config/conky/screen-watcher.sh`:**
+```bash
+#!/bin/bash
+DEBOUNCE=10
+last_restart=0
+
+dbus-monitor --session "type='signal',interface='org.kde.kscreen.Backend',member='configChanged'" 2>/dev/null |
+while read -r line; do
+    if echo "$line" | grep -q "configChanged"; then
+        now=$(date +%s)
+        diff=$((now - last_restart))
+        if [ "$diff" -ge "$DEBOUNCE" ]; then
+            last_restart=$now
+            sleep 5
+            systemctl --user restart conky-cyberpunk.service &
+        fi
+    fi
+done
+```
+
+**`~/.config/systemd/user/conky-screen-watcher.service`:**
+```ini
+[Unit]
+Description=Conky screen change watcher
+After=graphical-session.target conky-cyberpunk.service
+
+[Service]
+ExecStart=/home/$USER/.config/conky/screen-watcher.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
+```
+
+Enable both: `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk conky-screen-watcher`
+
+### Key Conky syntax
 - `${execbar expr}` — progress bar from shell expression (0-100)
 - `${execi N cmd}` — run command every N seconds (cache-heavy commands)
 - `${cpugraph W×H color1 color2}` — CPU load graph
@@ -161,14 +259,18 @@ Apply same color to `%` text and `cpubar`. Keeps palette consistent — never gr
 ```
 Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
 
-### Gotchas
-1. `${if_match}` comparisons fail silently if quotes mismatch — test with `${exec echo}` first.
-2. `execbar` expects 0-100 output; shell math must produce a plain number.
-3. `${exec docker ...}` returns empty when Docker is stopped — always wrap in `${if_empty}`.
-4. `cpugraph` without CPU number = all CPUs averaged; `cpugraph 0` = CPU0 only.
-5. Window height depends on content — add/remove widgets to fit screen. Check with `xdotool getwindowgeometry`.
-6. `own_window_type = 'dock'` positions relative to gap_x/gap_y but multi-monitor needs xdotool to move.
-7. JetBrains Mono must be installed (`sudo apt install -y fonts-jetbrainsmono`); fallback fonts render ugly.
+### Gotchas (lessons learned the hard way)
+1. **NEVER use .desktop autostart for Conky** — KDE/systemd creates a separate `app-conky@autostart.service` that launches Conky INDEPENDENTLY of your script, resulting in TWO Conky windows (one on wrong monitor, one correct). Use systemd user services only.
+2. **NEVER use xdotool to move Conky windows** — causes visible flash on primary monitor before move. Use `-m N` flag instead, which renders directly on target monitor.
+3. **NEVER use `alignment` + `gap_x/gap_y` for multi-monitor** — always targets primary monitor. Use `-m N`.
+4. **dbus-monitor screen watcher needs debounce ≥10s + sleep 5s** — KDE emits 3-4 `configChanged` signals within 2-3 seconds during monitor reconnect. Short debounce causes multiple rapid Conky restarts.
+5. **`killall conky` in launcher script races with systemd** — systemd service's `Type=forking` may start while script kills the previous instance. Let systemd handle lifecycle; script should only launch.
+6. `${if_match}` comparisons fail silently if quotes mismatch — test with `${exec echo}` first.
+7. `execbar` expects 0-100 output; shell math must produce a plain number.
+8. `${exec docker ...}` returns empty when Docker is stopped — always wrap in `${if_empty}`.
+9. `cpugraph` without CPU number = all CPUs averaged; `cpugraph 0` = CPU0 only.
+10. Window height depends on content — add/remove widgets to fit screen. Check with `xdotool getwindowgeometry`.
+11. JetBrains Mono must be installed (`sudo apt install -y fonts-jetbrainsmono`); fallback fonts render ugly.
 
 ## 10. Troubleshooting cheatsheet
 1. `plasma-apply-wallpaperimage` resets wallpaper plugin to image — reorder ops or re-apply slideshow after.
@@ -190,6 +292,7 @@ Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
 - Decoration to stock: `kwriteconfig5 --file kwinrc --group "org.kde.kdecoration2" --key "theme" "Breeze"; qdbus org.kde.KWin /KWin reconfigure`
 - Remove Kvantum: `sudo apt remove qt5-style-kvantum` + remove env overrides.
 - Remove timer: `systemctl --user disable --now cyber-wallpaper.timer`.
+- Remove Conky: `systemctl --user disable --now conky-cyberpunk conky-screen-watcher; rm ~/.config/conky/cyberpunk.conf ~/.config/conky/start-cyberpunk.sh ~/.config/conky/screen-watcher.sh ~/.config/systemd/user/conky-*.service; systemctl --user daemon-reload`
 - SDDM back to stock:
 ```
 sudo sed -i 's/^Current=.*/Current=kubuntu/' /etc/sddm.conf.d/default.conf /etc/sddm.conf.d/kde_settings.conf
@@ -199,4 +302,6 @@ sudo systemctl restart sddm
 ```
 
 ## 12. Final report
-When done, summarize: what was changed, what to verify visually (accent cyan, neon window frame on Dolphin/Konsole, neon lock clock, PS1, neon SDDM login with anonymous avatar), backups created, and any steps needing logout/reboot.
+When done, summarize: what was changed, what to verify visually (accent cyan, neon window frame on Dolphin/Konsole, neon lock clock, PS1, neon SDDM login with anonymous avatar, Conky on rightmost monitor with cyberpunk theme), backups created, and any steps needing logout/reboot.
+
+Verify Conky: `pgrep -c conky` should return 1, `xdotool getwindowgeometry $(xdotool search --class "Conky" | head -1)` should show the rightmost monitor position.
