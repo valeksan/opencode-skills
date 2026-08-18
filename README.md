@@ -1,115 +1,120 @@
-# personal-skills
+# Personal Skills for opencode
 
-Персональный набор навыков (агентов) для **opencode** — готовые инструкции-агенты, которые превращают стандартную систему в настроенную под тебя, фирменную и «вылизанную». Каждый навык — это проверенный на практике плейбук с точными командами: ставь на новую машину и получай тот же результат.
+Ready-to-use **opencode agent skills** (playbooks) for system setup, desktop customization, and automation on Linux. Copy a skill, run it on a new machine, get the same polished result.
 
-Сейчас в коллекции **1 навык** — киберпанк-кастомизация KDE Plasma (включая Conky system monitor).
+## What is this?
+
+Each skill is a markdown file (`.opencode/agent/<name>.md`) containing step-by-step instructions, verified commands, backup/rollback procedures, and troubleshooting checklists. opencode loads them as subagents that execute the full playbook autonomously.
+
+**Currently included:** 1 skill — cyberpunk KDE Plasma customization (with Conky system monitor).
 
 ---
 
-## 📦 Список навыков
+## Skills
 
-### 1. cyberpunk-kde — неоновая кастомизация KDE Plasma
-**Что делает:** превращает KDE Plasma 5.27 (X11) на Ubuntu 24.04 в киберпанк-рабочий стол в неоновой гамме (акцент `#00ffcc`):
+### cyberpunk-kde — Neon Cyberpunk KDE Plasma Customization
 
-### 📸 Галерея (нажми на картинку, чтобы увеличить)
+Transforms a stock KDE Plasma 5.27 (X11) desktop on Ubuntu 24.04 into a cyberpunk-themed workspace with neon accents (`#00ffcc`).
+
+**What it does:**
+- 🖼️ Wallpaper rotation every 10 min (systemd timer)
+- 🍔 Custom Kickoff icon and compact menu
+- 🎨 Kvantum widget theme "Cyberpunk" (dark navy + neon)
+- 💠 Plasma-wide accent color
+- 🪟 Neon window frame borders (Aurorae)
+- 💻 Neon PS1 prompt in Konsole with git status
+- 🔒 Lock screen: cyber wallpaper + glowing clock
+- 🔑 SDDM login screen: neon theme + anonymous avatar
+- 📊 Conky system monitor: CPU/GPU temps, VRAM, disk/network graphs, Docker, color-coded load
+- 🛠️ Panel widget deduplication, rollback procedures, verification checklists
+
+**File:** `.opencode/agent/cyberpunk-kde.md`
+
+### Screenshots
 
 <table>
   <tr>
-    <td align="center"><a href="assets/cyberpunk-kde.png"><img src="assets/cyberpunk-kde-thumb.png" alt="Киберпанк рабочий стол" width="300"/></a></td>
-    <td align="center"><a href="assets/cyberpunk-sddm.png"><img src="assets/cyberpunk-sddm-thumb.png" alt="Неоновый экран входа SDDM" width="300"/></a></td>
-    <td align="center"><a href="assets/cyberpunk-lockscreen.png"><img src="assets/cyberpunk-lockscreen-thumb.png" alt="Неоновая блокировка экрана" width="300"/></a></td>
+    <td align="center"><a href="assets/cyberpunk-kde.png"><img src="assets/cyberpunk-kde-thumb.png" alt="Cyberpunk KDE desktop" width="300"/></a></td>
+    <td align="center"><a href="assets/cyberpunk-sddm.png"><img src="assets/cyberpunk-sddm-thumb.png" alt="Neon SDDM login screen" width="300"/></a></td>
+    <td align="center"><a href="assets/cyberpunk-lockscreen.png"><img src="assets/cyberpunk-lockscreen-thumb.png" alt="Neon lock screen" width="300"/></a></td>
     <td align="center"><a href="assets/cyberpunk-conky.png"><img src="assets/cyberpunk-conky-thumb.png" alt="Cyberpunk Conky system monitor" width="300"/></a></td>
   </tr>
   <tr>
-    <td align="center"><sub>Рабочий стол</sub></td>
-    <td align="center"><sub>Экран входа (SDDM)</sub></td>
-    <td align="center"><sub>Экран блокировки</sub></td>
-    <td align="center"><sub>Conky system monitor</sub></td>
+    <td align="center"><sub>Desktop</sub></td>
+    <td align="center"><sub>SDDM Login</sub></td>
+    <td align="center"><sub>Lock Screen</sub></td>
+    <td align="center"><sub>Conky Monitor</sub></td>
   </tr>
 </table>
 
-- 🖼️ Обои-ротация каждые 10 мин (systemd-таймер)
-- 🍔 Иконка и компактное меню Kickoff
-- 🎨 Тема виджетов Kvantum «Cyberpunk» (тёмный navy + неон)
-- 💠 Акцентный цвет Plasma (выделение, фокус)
-- 🪟 Неоновые рамки окон Aurorae
-- 💻 Неоновый PS1 в Konsole с git-статусом
-- 🔒 Экран блокировки: кибер-обои + светящиеся часы
-- 🔑 Экран входа SDDM: неоновая тема + обезличенная кибер-аватарка
-- 📊 Conky system monitor: CPU/GPU temps, VRAM, disk/network graphs, Docker, color-coded load
-- 🛠️ Чинит дубликаты виджетов панели, даёт откаты и чек-лист проверок
-
-**Файл:** `.opencode/agent/cyberpunk-kde.md`
-
 ---
 
-## 🚀 Как использовать навыки
+## How to use
 
-### Где можно использовать
-Навыки работают **в любом проекте/репозитории** на любой машине, где установлен opencode:
+### Install
 
-- **Глобально (рекомендуется)** — навык доступен в любом каталоге от твоего пользователя:
-  ```bash
-  mkdir -p ~/.opencode/agent
-  cp .opencode/agent/*.md ~/.opencode/agent/
-  ```
-- **Локально в проекте** — навык доступен только внутри этого репозитория:
-  - оставь файлы как есть в `.opencode/agent/`
+Skills work in any project or globally on any machine with opencode installed.
 
-### Активация
-1. Скопируй файлы навыка (см. выше)
-2. **Перезапусти opencode**
-3. Готово — агент подхватится автоматически
-
-### Запуск навыка
-Просто попроси в чате opencode, например:
-
-> «Сделай киберпанк-кастомизацию KDE по плейбуку»
-
-Агент сам выполнит все шаги по порядку: аудит системы → применение изменений по одному с проверкой → бэкапы → откат при проблемах → отчёт. Там, где нужна перезагрузка или рестарт сессии (SDDM, KWin), он предупредит заранее.
-
-### Требования к системе
-- Ubuntu 24.04 (проверено), KDE Plasma **5.27, X11**
-- Установленный **opencode**
-- Права `sudo` у пользователя
-- Для полного результата нужны файлы-ассеты (обои, иконки, темы) — по умолчанию навык создаёт/перекрашивает стандартные; фирменные ассеты можно положить в `~/Pictures/Wallpapers/Cyberpunk/` и `~/.local/share/` по путям из плейбука.
-
-### Полезные приёмы
-- **Только часть изменений** — скажи: «сделай только SDDM и аватар» — агент выполнит нужный раздел.
-- **Проверка без риска** — агент делает бэкапы и умеет откатывать; при сомнениях он спросит.
-
----
-
-## 🗂️ Структура репозитория
-
-```
-personal-skills/
-├── README.md              # этот файл
-└── .opencode/
-    └── agent/             # агенты opencode (навыки)
-        └── cyberpunk-kde.md
+**Globally (recommended):**
+```bash
+mkdir -p ~/.opencode/agent
+cp .opencode/agent/*.md ~/.opencode/agent/
 ```
 
+**Per-project (local):**
+Keep files in `.opencode/agent/` inside your repository.
+
+### Run
+
+1. Copy skill files (see above)
+2. Restart opencode
+3. Ask in chat: "Apply cyberpunk KDE customization from the playbook"
+
+The agent executes everything autonomously: audit → apply changes one by one with verification → backups → rollback on issues → final report. It warns before any reboot or session restart (SDDM, KWin).
+
+### Requirements
+- Ubuntu 24.04 (tested), KDE Plasma **5.27, X11**
+- **opencode** installed
+- `sudo` access
+- For full visual results, asset files (wallpapers, icons, themes) are created/repainted from defaults; custom assets can be placed in `~/Pictures/Wallpapers/Cyberpunk/` and `~/.local/share/` per playbook paths.
+
+### Tips
+- **Partial application:** Say "only do SDDM and avatar" — the agent runs only that section.
+- **Safe preview:** Agent creates backups and can roll back; it asks when uncertain.
+
 ---
 
-## ➕ Как добавить новый навык
+## Adding new skills
 
-1. Создай файл `.opencode/agent/<имя>.md` с frontmatter:
+1. Create `.opencode/agent/<name>.md` with frontmatter:
    ```yaml
    ---
-   description: краткое описание, когда вызывать
+   description: when to trigger this skill
    mode: subagent
    permission:
      edit: allow
      bash: allow
    ---
    ```
-2. Напиши инструкции (проверенные команды, откаты, чек-лист)
-3. Добавь пункт в раздел «Список навыков» этого README
-4. Закоммить и запуши — на новых машинах просто `git clone` + копирование в `~/.opencode/agent/`
+2. Write instructions (verified commands, rollback procedures, checklists)
+3. Add an entry to the Skills section in this README
+4. Commit and push — on new machines, just `git clone` + copy to `~/.opencode/agent/`
 
 ---
 
-## 📄 Лицензия
+## Repository structure
 
-Личный проект. Копируй, адаптируй, делись.
+```
+personal-skills/
+├── README.md
+├── assets/                  # screenshots
+└── .opencode/
+    └── agent/               # opencode skills
+        └── cyberpunk-kde.md
+```
+
+---
+
+## License
+
+Personal project. Copy, adapt, share.
