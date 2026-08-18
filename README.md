@@ -98,7 +98,7 @@ The agent executes everything autonomously: audit → apply changes one by one w
    ```
 2. Write instructions (verified commands, rollback procedures, checklists)
 3. Add an entry to the Skills section in this README
-4. Commit and push — on new machines, just `git clone` + copy to `~/.opencode/agent/`
+4. Commit and push — on new machines, just `git clone --depth=1` + copy to `~/.opencode/agent/`
 
 ---
 
