@@ -122,9 +122,11 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 1. Install packages.
 2. Create `~/.config/conky/cyberpunk.conf` (see Visual theme).
 3. Create `~/.config/conky/start-cyberpunk.sh` (see Universal monitor detection).
-4. Create systemd services (see Autostart).
-5. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk conky-screen-watcher`.
-6. Verify: `pgrep -a conky` shows ONE process, `xdotool getwindowgeometry $(xdotool search --class "Conky" | head -1)` shows correct monitor.
+4. Create `~/.config/conky/clean-session.sh` (see Autostart), `chmod +x`.
+5. Create systemd services (see Autostart).
+6. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk conky-screen-watcher`.
+7. Clean any stale KDE session entries: `~/.config/conky/clean-session.sh`.
+8. Verify: `pgrep -a conky` shows ONE process, `xdotool getwindowgeometry $(xdotool search --class "Conky" | head -1)` shows correct monitor.
 
 ### Visual theme
 - **Font**: JetBrains Mono (sizes 7-26 depending on element)
@@ -185,6 +187,27 @@ conky -c ~/.config/conky/cyberpunk.conf -m "$RIGHTMOST" -d
 ### Autostart (systemd, NOT .desktop)
 DO NOT use `~/.config/autostart/*.desktop` for Conky — KDE/systemd treats it as a separate autostart entry and launches a SECOND Conky instance. Use systemd user services instead.
 
+**`~/.config/conky/clean-session.sh`:** (removes conky from KDE session save to prevent duplicate launches)
+```bash
+#!/bin/bash
+# KDE's ksmserver saves all running apps to ~/.config/ksmserverrc at logout,
+# including Conky. On next login it restores them BEFORE systemd services start,
+# causing a duplicate (KDE-restored + systemd-launched = 2-3 Conky windows).
+# This script strips the LegacySession section so KDE never restores Conky.
+KSMSERVER_RC="$HOME/.config/ksmserverrc"
+[ -f "$KSMSERVER_RC" ] || exit 0
+python3 -c "
+import re
+with open('$KSMSERVER_RC', 'r') as f:
+    content = f.read()
+new_content = re.sub(r'\[LegacySession:.*?\](?:\n(?!^\[).*)*', '', content, flags=re.MULTILINE)
+new_content = re.sub(r'\n{3,}', '\n\n', new_content)
+with open('$KSMSERVER_RC', 'w') as f:
+    f.write(new_content)
+"
+```
+`chmod +x ~/.config/conky/clean-session.sh`
+
 **`~/.config/systemd/user/conky-cyberpunk.service`:**
 ```ini
 [Unit]
@@ -193,6 +216,7 @@ After=graphical-session.target
 
 [Service]
 Type=forking
+ExecStartPre=/home/$USER/.config/conky/clean-session.sh
 ExecStart=/home/$USER/.config/conky/start-cyberpunk.sh
 Restart=on-failure
 RestartSec=5
@@ -261,16 +285,17 @@ Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
 
 ### Gotchas (lessons learned the hard way)
 1. **NEVER use .desktop autostart for Conky** — KDE/systemd creates a separate `app-conky@autostart.service` that launches Conky INDEPENDENTLY of your script, resulting in TWO Conky windows (one on wrong monitor, one correct). Use systemd user services only.
-2. **NEVER use xdotool to move Conky windows** — causes visible flash on primary monitor before move. Use `-m N` flag instead, which renders directly on target monitor.
-3. **NEVER use `alignment` + `gap_x/gap_y` for multi-monitor** — always targets primary monitor. Use `-m N`.
-4. **dbus-monitor screen watcher needs debounce ≥10s + sleep 5s** — KDE emits 3-4 `configChanged` signals within 2-3 seconds during monitor reconnect. Short debounce causes multiple rapid Conky restarts.
-5. **`killall conky` in launcher script races with systemd** — systemd service's `Type=forking` may start while script kills the previous instance. Let systemd handle lifecycle; script should only launch.
-6. `${if_match}` comparisons fail silently if quotes mismatch — test with `${exec echo}` first.
-7. `execbar` expects 0-100 output; shell math must produce a plain number.
-8. `${exec docker ...}` returns empty when Docker is stopped — always wrap in `${if_empty}`.
-9. `cpugraph` without CPU number = all CPUs averaged; `cpugraph 0` = CPU0 only.
-10. Window height depends on content — add/remove widgets to fit screen. Check with `xdotool getwindowgeometry`.
-11. JetBrains Mono must be installed (`sudo apt install -y fonts-jetbrainsmono`); fallback fonts render ugly.
+2. **KDE session restore (ksmserverrc) duplicates Conky** — KDE's `ksmserver` saves ALL running X11 clients to `~/.config/ksmserverrc` `[LegacySession]` section at logout. On next login it restores them BEFORE systemd services start, causing 2-3 Conky copies (KDE-restored + systemd-launched + screen-watcher restart). Fix: `ExecStartPre` in the systemd service runs `clean-session.sh` which strips the LegacySession section before Conky launches.
+3. **NEVER use xdotool to move Conky windows** — causes visible flash on primary monitor before move. Use `-m N` flag instead, which renders directly on target monitor.
+4. **NEVER use `alignment` + `gap_x/gap_y` for multi-monitor** — always targets primary monitor. Use `-m N`.
+5. **dbus-monitor screen watcher needs debounce ≥10s + sleep 5s** — KDE emits 3-4 `configChanged` signals within 2-3 seconds during monitor reconnect. Short debounce causes multiple rapid Conky restarts.
+6. **`killall conky` in launcher script races with systemd** — systemd service's `Type=forking` may start while script kills the previous instance. Let systemd handle lifecycle; script should only launch.
+7. `${if_match}` comparisons fail silently if quotes mismatch — test with `${exec echo}` first.
+8. `execbar` expects 0-100 output; shell math must produce a plain number.
+9. `${exec docker ...}` returns empty when Docker is stopped — always wrap in `${if_empty}`.
+10. `cpugraph` without CPU number = all CPUs averaged; `cpugraph 0` = CPU0 only.
+11. Window height depends on content — add/remove widgets to fit screen. Check with `xdotool getwindowgeometry`.
+12. JetBrains Mono must be installed (`sudo apt install -y fonts-jetbrainsmono`); fallback fonts render ugly.
 
 ## 10. Troubleshooting cheatsheet
 1. `plasma-apply-wallpaperimage` resets wallpaper plugin to image — reorder ops or re-apply slideshow after.
@@ -292,7 +317,7 @@ Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
 - Decoration to stock: `kwriteconfig5 --file kwinrc --group "org.kde.kdecoration2" --key "theme" "Breeze"; qdbus org.kde.KWin /KWin reconfigure`
 - Remove Kvantum: `sudo apt remove qt5-style-kvantum` + remove env overrides.
 - Remove timer: `systemctl --user disable --now cyber-wallpaper.timer`.
-- Remove Conky: `systemctl --user disable --now conky-cyberpunk conky-screen-watcher; rm ~/.config/conky/cyberpunk.conf ~/.config/conky/start-cyberpunk.sh ~/.config/conky/screen-watcher.sh ~/.config/systemd/user/conky-*.service; systemctl --user daemon-reload`
+- Remove Conky: `systemctl --user disable --now conky-cyberpunk conky-screen-watcher; rm ~/.config/conky/cyberpunk.conf ~/.config/conky/start-cyberpunk.sh ~/.config/conky/screen-watcher.sh ~/.config/conky/clean-session.sh ~/.config/systemd/user/conky-*.service; systemctl --user daemon-reload`
 - SDDM back to stock:
 ```
 sudo sed -i 's/^Current=.*/Current=kubuntu/' /etc/sddm.conf.d/default.conf /etc/sddm.conf.d/kde_settings.conf
