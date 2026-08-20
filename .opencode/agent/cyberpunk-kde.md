@@ -121,11 +121,11 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 ### Installation steps (in order)
 1. Install packages.
 2. Create `~/.config/conky/cyberpunk.conf` (see Visual theme).
-3. Create `~/.config/conky/start-cyberpunk.sh` (see Universal monitor detection).
+3. Create `~/.config/conky/start-cyberpunk.sh` (see Universal monitor detection), `chmod +x`.
 4. Create `~/.config/conky/clean-session.sh` (see Autostart), `chmod +x`.
-5. Create systemd services (see Autostart).
-6. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk conky-screen-watcher`.
-7. Clean any stale KDE session entries: `~/.config/conky/clean-session.sh`.
+5. Add `clean-session.sh` call to `~/.xprofile` (see Autostart).
+6. Create systemd services (see Autostart).
+7. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk conky-screen-watcher`.
 8. Verify: `pgrep -a conky` shows ONE process, `xdotool getwindowgeometry $(xdotool search --class "Conky" | head -1)` shows correct monitor.
 
 ### Visual theme
@@ -165,6 +165,10 @@ Use `-m N` flag where N is detected at launch time.
 #!/bin/bash
 # Cyberpunk Conky — always on the RIGHTMOST monitor
 
+# Kill any existing conky instance (KDE session restore may have launched one)
+pkill -f 'conky -c.*cyberpunk' 2>/dev/null
+sleep 1
+
 # Find rightmost monitor index from xrandr
 RIGHTMOST=$(xrandr --listmonitors 2>/dev/null | awk '
     /:/ {
@@ -184,8 +188,20 @@ RIGHTMOST=$(xrandr --listmonitors 2>/dev/null | awk '
 conky -c ~/.config/conky/cyberpunk.conf -m "$RIGHTMOST" -d
 ```
 
-### Autostart (systemd, NOT .desktop)
+### Autostart (systemd + .xprofile, NOT .desktop)
 DO NOT use `~/.config/autostart/*.desktop` for Conky — KDE/systemd treats it as a separate autostart entry and launches a SECOND Conky instance. Use systemd user services instead.
+
+**Two-layer defense against KDE session restore duplicates:**
+
+1. **`.xprofile`** — runs BEFORE ksmserver starts, cleans `ksmserverrc` so KDE never restores Conky.
+2. **`start-cyberpunk.sh`** — `pkill` any leftover conky before launching (belt and suspenders).
+
+**`~/.xprofile`** (add at the end):
+```bash
+# Clean KDE session restore entries for Conky (prevents duplicate instances).
+# Must run here (before ksmserver), NOT in systemd ExecStartPre (too late).
+[ -x ~/.config/conky/clean-session.sh ] && ~/.config/conky/clean-session.sh
+```
 
 **`~/.config/conky/clean-session.sh`:** (removes conky from KDE session save to prevent duplicate launches)
 ```bash
@@ -285,7 +301,7 @@ Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
 
 ### Gotchas (lessons learned the hard way)
 1. **NEVER use .desktop autostart for Conky** — KDE/systemd creates a separate `app-conky@autostart.service` that launches Conky INDEPENDENTLY of your script, resulting in TWO Conky windows (one on wrong monitor, one correct). Use systemd user services only.
-2. **KDE session restore (ksmserverrc) duplicates Conky** — KDE's `ksmserver` saves ALL running X11 clients to `~/.config/ksmserverrc` `[LegacySession]` section at logout. On next login it restores them BEFORE systemd services start, causing 2-3 Conky copies (KDE-restored + systemd-launched + screen-watcher restart). Fix: `ExecStartPre` in the systemd service runs `clean-session.sh` which strips the LegacySession section before Conky launches.
+2. **KDE session restore (ksmserverrc) duplicates Conky** — KDE's `ksmserver` saves ALL running X11 clients to `~/.config/ksmserverrc` `[LegacySession]` section at logout. On next login it restores them BEFORE systemd services start, causing 2-3 Conky copies (KDE-restored + systemd-launched + screen-watcher restart). Fix: TWO layers — (a) `clean-session.sh` in `~/.xprofile` runs BEFORE ksmserver and strips LegacySession; (b) `pkill` in `start-cyberpunk.sh` kills any leftover before launching. `ExecStartPre` in the systemd service alone is TOO LATE — ksmserver restores before systemd user services start.
 3. **NEVER use xdotool to move Conky windows** — causes visible flash on primary monitor before move. Use `-m N` flag instead, which renders directly on target monitor.
 4. **NEVER use `alignment` + `gap_x/gap_y` for multi-monitor** — always targets primary monitor. Use `-m N`.
 5. **dbus-monitor screen watcher needs debounce ≥10s + sleep 5s** — KDE emits 3-4 `configChanged` signals within 2-3 seconds during monitor reconnect. Short debounce causes multiple rapid Conky restarts.
@@ -317,7 +333,7 @@ Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
 - Decoration to stock: `kwriteconfig5 --file kwinrc --group "org.kde.kdecoration2" --key "theme" "Breeze"; qdbus org.kde.KWin /KWin reconfigure`
 - Remove Kvantum: `sudo apt remove qt5-style-kvantum` + remove env overrides.
 - Remove timer: `systemctl --user disable --now cyber-wallpaper.timer`.
-- Remove Conky: `systemctl --user disable --now conky-cyberpunk conky-screen-watcher; rm ~/.config/conky/cyberpunk.conf ~/.config/conky/start-cyberpunk.sh ~/.config/conky/screen-watcher.sh ~/.config/conky/clean-session.sh ~/.config/systemd/user/conky-*.service; systemctl --user daemon-reload`
+- Remove Conky: `systemctl --user disable --now conky-cyberpunk conky-screen-watcher; rm ~/.config/conky/cyberpunk.conf ~/.config/conky/start-cyberpunk.sh ~/.config/conky/screen-watcher.sh ~/.config/conky/clean-session.sh ~/.config/systemd/user/conky-*.service; systemctl --user daemon-reload; sed -i '/clean-session.sh/d' ~/.xprofile`
 - SDDM back to stock:
 ```
 sudo sed -i 's/^Current=.*/Current=kubuntu/' /etc/sddm.conf.d/default.conf /etc/sddm.conf.d/kde_settings.conf
