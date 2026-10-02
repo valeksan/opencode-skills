@@ -14,7 +14,7 @@ Each skill is a markdown file (`.opencode/agent/<name>.md`) containing step-by-s
 
 ### cyberpunk-kde — Neon Cyberpunk KDE Plasma Customization
 
-Transforms a stock KDE Plasma 5.27 (X11) desktop on Ubuntu 24.04 into a cyberpunk-themed workspace with neon accents (`#00ffcc`). The Conky section is additionally verified on Ubuntu 26.04 + KDE Plasma 6 (Wayland).
+Transforms a stock KDE Plasma 5.27 (X11) desktop on Ubuntu 24.04 into a cyberpunk-themed workspace with neon accents (`#00ffcc`). The Conky section (§9) and the SDDM theme (§8, Qt6 port + neon text styling) are additionally verified on Ubuntu 26.04 + KDE Plasma 6 (Wayland).
 
 **What it does:**
 - 🖼️ Wallpaper rotation every 10 min (systemd timer)
@@ -23,8 +23,8 @@ Transforms a stock KDE Plasma 5.27 (X11) desktop on Ubuntu 24.04 into a cyberpun
 - 💠 Plasma-wide accent color
 - 🪟 Neon window frame borders (Aurorae)
 - 💻 Neon PS1 prompt in Konsole with git status
-- 🔒 Lock screen: cyber wallpaper + glowing clock
-- 🔑 SDDM login screen: neon theme + anonymous avatar
+- 🔒 Lock screen: cyber wallpaper + glowing clock (clock patch: Plasma 5 only; wallpaper works on both)
+- 🔑 SDDM login screen: neon theme + anonymous avatar + neon texts (Qt5 theme on Plasma 5, Qt6 port on Plasma 6)
 - 📊 Conky system monitor: CPU/GPU temps, VRAM, disk/network graphs, Docker, color-coded load, under-windows layer, click-through (mouse works through the panel), auto-scaling to any screen resolution
 - 🛠️ Panel widget deduplication, rollback procedures, verification checklists
 
@@ -73,7 +73,7 @@ Keep files in `.opencode/agent/` inside your repository.
 The agent executes everything autonomously: audit → apply changes one by one with verification → backups → rollback on issues → final report. It warns before any reboot or session restart (SDDM, KWin).
 
 ### Requirements
-- Ubuntu 24.04, KDE Plasma **5.27, X11** (tested) — Conky section (§9) additionally verified on **Ubuntu 26.04, KDE Plasma 6, Wayland**
+- Ubuntu 24.04, KDE Plasma **5.27, X11** (tested) — Conky (§9) and SDDM (§8) additionally verified on **Ubuntu 26.04, KDE Plasma 6, Wayland**
 - **opencode** installed
 - `sudo` access
 - For full visual results, asset files (wallpapers, icons, themes) are created/repainted from defaults; custom assets can be placed in `~/Pictures/Wallpapers/Cyberpunk/` and `~/.local/share/` per playbook paths.
