@@ -127,16 +127,21 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 
   | File | Edit |
   |---|---|
-  | `Main.qml` | root `palette` — full QQC2 role map: `window/base/button #0a0e1a`, `windowText/buttonText #00ffcc`, `placeholderText #00705c`, `highlight #ff00ff`, `light #003344` (frames), `mid #00ffcc`, `dark #0a0e1a` + `import QtQuick` (unversioned, see gotcha) |
+  | `Main.qml` | root `palette` — full QQC2 role map: `window/base/button #0a0e1a`, `windowText/buttonText #00ffcc`, `placeholderText #00705c`, `highlight #ff00ff`, `light #003344` (frames), `mid #00ffcc`, `dark #0a0e1a` + `import QtQuick` (unversioned, see gotcha) + footer: `spacing: Kirigami.Units.largeSpacing`, Virtual Keyboard ToolButton gets custom `contentItem` (Kirigami.Icon + Text, idle `#00aaff` / hover `#00ffcc`), dark-chip `background` and `left/rightPadding: smallSpacing` |
   | `components/UserDelegate.qml` | username `color: "#00ffcc"`, avatar ring `colorBorder: "#00ffcc"`, fallback face icon `color: "#00ffcc"` |
-  | `Login.qml` | username/password field: `color: "#00ffcc"`, `placeholderTextColor: "#00705c"` |
+  | `Login.qml` | username/password field: `color: "#00ffcc"`, `placeholderTextColor: "#00705c"` **+ explicit `background: Rectangle`** (dark `#0a0e1a`, border `#00ffcc` on focus else `#003344`, radius 3); login `>` button: dark-chip `background` (`#0d1020`, hover `#132038`, border cyan → magenta on hover) + `icon.color: "#00ffcc"` (hover `#ff00ff`) |
+  | `SessionButton.qml`, `KeyboardButton.qml` | text-only `contentItem: Text` (idle `#00aaff`, hover/checked `#00ffcc`), dark-chip `background` (hover `#101a2e`, checked `#132038`, border `#003344`), `left/rightPadding: smallSpacing` |
+  | `components/Battery.qml` | battery percent Label `color: "#00aaff"` |
   | `components/ActionButton.qml` | Sleep/Restart/Shut Down/Other…: icon circle, ripple and label `#00ffcc`, hover/checked `#ff00ff` |
   | `components/SessionManagementScreen.qml` | notifications (Caps Lock hint, login errors) `color: "#ff00ff"` |
 
-- **Palette vs Kirigami — the real lesson:**
+- **Palette vs Kirigami — the real lessons:**
   1. **`import QtQuick 2.15` does NOT expose the `palette` property** on `Item`/`ApplicationWindow` in this Qt. Setting it → `Cannot assign to non-existent property "palette"` → the whole `Main.qml` fails → greeter silently falls back to the embedded default theme. Use **unversioned `import QtQuick`** (Qt6 style). Verify by grepping the greeter output for "Fallback".
   2. **A root `palette` does NOT recolor pc3 components.** `PlasmaComponents3` (Label, ToolButton, Button → `ButtonContent.qml`) hardcode `Kirigami.Theme.textColor` / `Kirigami.Theme.highlightedTextColor` — the global Kirigami theme, not item palette. Where an exact neon color matters → set explicit `color:` **on the instance** (that's how username, fields, action buttons and notifications got their neon — instance property assignment overrides the base binding).
-  3. **The bottom bar (Virtual Keyboard / Desktop Session ToolButtons) is kept WHITE on purpose** — looks better against the dark greeter, user's choice (2026-10-02). Don't "fix" it.
+  3. **THE BIG ONE — a test-mode preview as YOUR user LIES.** The preview runs under your account with YOUR (usually dark) KDE config; the REAL greeter runs as user `sddm` whose global Qt/Kirigami theme is the LIGHT default. Everything styled only "implicitly" (field backgrounds, footer ToolButtons, battery label, login `>` button) looked right in preview but was WHITE-BG/BLACK-TEXT in reality. **Fix rule: every visible color in the theme must be explicit** (background Rectangle, contentItem Text, icon.color) — never rely on palette/Kirigami/global theme. **Preview accurately** by running as the real owner:
+     `sudo -u sddm env DISPLAY=:2 QT_QPA_PLATFORM=xcb HOME=/var/lib/sddm XDG_CONFIG_HOME=/var/lib/sddm/.config /usr/bin/sddm-greeter-qt6 --test-mode --theme <path> --socket /tmp/sddm-test`
+     (then the screenshot shows what users will REALLY see; note the kill command now needs `sudo pkill -x sddm-greeter-qt` — the process is owned by `sddm`, your user can't signal it).
+  4. **Footer color scheme (decided 2026-10-02, replaces the earlier "keep bottom bar white" preference — that preference was based on the misleading preview):** footer = secondary blue `#00aaff` idle → cyan `#00ffcc` hover; magenta `#ff00ff` reserved for primary actions hovers (login `>`, power buttons) and notifications. Buttons get dark chips + spacing (`largeSpacing` between, `smallSpacing` padding) so they don't glue to the screen edge.
 - **Rollback:** `sudo cp -a /usr/share/sddm/themes/Cyberpunk.bak-YYYYMMDD/. /usr/share/sddm/themes/Cyberpunk/`
 
 ## 9. Conky: cyberpunk system monitor
@@ -617,7 +622,7 @@ sudo systemctl restart sddm
 ```
 
 ## 12. Final report
-When done, summarize: what was changed, what to verify visually (accent cyan, neon window frame on Dolphin/Konsole, neon lock clock — Plasma 5 only, on Plasma 6 the wallpaper part applies and the clock stays stock —, PS1, neon SDDM login with anonymous avatar and neon texts: username/buttons cyan, notifications magenta, bottom bar intentionally white, Conky on rightmost monitor with cyberpunk theme), backups created, and any steps needing logout/reboot.
+When done, summarize: what was changed, what to verify visually (accent cyan, neon window frame on Dolphin/Konsole, neon lock clock — Plasma 5 only, on Plasma 6 the wallpaper part applies and the clock stays stock —, PS1, neon SDDM login with anonymous avatar and neon texts: username/action buttons cyan, dark input fields with cyan borders, footer blue→cyan hover, notifications magenta, Conky on rightmost monitor with cyberpunk theme), backups created, and any steps needing logout/reboot.
 
 Verify Conky:
 - `pgrep -c conky` → 1
