@@ -176,7 +176,7 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 - **Window layer (CRITICAL — verified on both stacks)**:
   - `own_window_type = 'normal'` + `own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager'`
   - Result: above wallpaper, **under ordinary windows** — correct behavior for a desktop widget.
-  - REJECTED: `dock` type + `above` hint — the panel floats OVER all windows (user complaint: «conky поверх окон»; note `dock` alone is a panel-level layer = always above windows).
+  - REJECTED: `dock` type + `above` hint — the panel floats OVER all windows (user complaint: "conky is drawn on top of windows"; note `dock` alone is a panel-level layer = always above windows).
   - REJECTED: `desktop` type — on Wayland KWin maps X desktop-type windows UNDER the Plasma wallpaper layer: conky becomes completely invisible (process alive, log says «window type - desktop», screen shows nothing).
   - Never add the `above` hint; `below` is the one that matters.
 - **Right margin**: `gap_x = 20` (px from the right edge of the target monitor; `alignment = 'top_right'`).
