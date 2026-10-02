@@ -14,7 +14,7 @@ Each skill is a markdown file (`.opencode/agent/<name>.md`) containing step-by-s
 
 ### cyberpunk-kde — Neon Cyberpunk KDE Plasma Customization
 
-Transforms a stock KDE Plasma 5.27 (X11) desktop on Ubuntu 24.04 into a cyberpunk-themed workspace with neon accents (`#00ffcc`). The Conky section (§9) and the SDDM theme (§8, Qt6 port + neon text styling) are additionally verified on Ubuntu 26.04 + KDE Plasma 6 (Wayland).
+Transforms a stock KDE Plasma 5.27 (X11) desktop on Ubuntu 24.04 into a cyberpunk-themed workspace with neon accents (`#00ffcc`). The Conky section (§9) and the SDDM theme (§8 — Qt6 install from the [valeksan/sddm-theme-cyberpunk](https://github.com/valeksan/sddm-theme-cyberpunk) repo) are additionally verified on Ubuntu 26.04 + KDE Plasma 6 (Wayland).
 
 **What it does:**
 - 🖼️ Wallpaper rotation every 10 min (systemd timer)
@@ -24,13 +24,13 @@ Transforms a stock KDE Plasma 5.27 (X11) desktop on Ubuntu 24.04 into a cyberpun
 - 🪟 Neon window frame borders (Aurorae)
 - 💻 Neon PS1 prompt in Konsole with git status
 - 🔒 Lock screen: cyber wallpaper + glowing clock (clock patch: Plasma 5 only; wallpaper works on both)
-- 🔑 SDDM login screen: neon theme + anonymous avatar + neon texts (Qt5 theme on Plasma 5, Qt6 port on Plasma 6)
+- 🔑 SDDM login screen: neon theme + anonymous avatar + neon texts (Qt5 theme on Plasma 5, repo install on Plasma 6)
 - 📊 Conky system monitor: CPU/GPU temps, VRAM, disk/network graphs, Docker, color-coded load, under-windows layer, click-through (mouse works through the panel), auto-scaling to any screen resolution
 - 🛠️ Panel widget deduplication, rollback procedures, verification checklists
 
 **Files:**
 - Skill: `.opencode/agent/cyberpunk-kde.md` — narrative, commands, lessons
-- Artifacts: `references/cyberpunk-kde/` — deployable file contents (Conky config, launcher, cleaner, systemd unit, C click-through tool, PS1). The skill reads them from this directory at run time, which keeps the skill file small (progressive disclosure, the standard skills pattern).
+- Artifacts: `references/cyberpunk-kde/` — deployable file contents (Conky config, launcher, cleaner, systemd unit, C click-through tool, PS1) plus the SDDM Qt6 styling reference. The skill reads them from this directory at run time, which keeps the skill file small (progressive disclosure, the standard skills pattern).
 
 ### Screenshots
 
@@ -114,7 +114,7 @@ personal-skills/
 ├── README.md
 ├── assets/                  # screenshots
 ├── references/
-│   └── cyberpunk-kde/       # deployable artifacts (conky.conf, scripts, unit, C tool, PS1)
+│   └── cyberpunk-kde/       # deployable artifacts (conky.conf, scripts, unit, C tool, PS1) + SDDM styling notes
 └── .opencode/
     └── agent/               # opencode skills
         └── cyberpunk-kde.md

@@ -1,5 +1,5 @@
 ---
-description: "Cyberpunk KDE Plasma customizer. Transforms any KDE Plasma desktop into a neon/cyberpunk theme: wallpapers, Kvantum, accent color, Aurorae window decoration, neon lock screen clock, neon PS1, neon SDDM login screen with anonymous avatar (Qt5 theme on Plasma 5, Qt6 port + neon text styling on Plasma 6), panel widget deduplication, cyberpunk Conky system monitor. Use when the user asks to apply, redo, or fix a cyberpunk look on KDE, customize the SDDM/login screen or the lock screen, fix duplicated panel widgets, set up Conky with cyberpunk styling, or mentions cyberpunk/KDE customization. The Conky section (§9) is verified on BOTH stacks: Ubuntu 24.04 + Plasma 5.27 (X11) and Ubuntu 26.04 + Plasma 6 (Wayland); SDDM (§8) has a verified Qt6 variant for the latter."
+description: "Cyberpunk KDE Plasma customizer. Transforms any KDE Plasma desktop into a neon/cyberpunk theme: wallpapers, Kvantum, accent color, Aurorae window decoration, neon lock screen clock, neon PS1, neon SDDM login screen with anonymous avatar (Qt5 theme on Plasma 5, ready-made theme from the valeksan/sddm-theme-cyberpunk repo on Plasma 6), panel widget deduplication, cyberpunk Conky system monitor. Use when the user asks to apply, redo, or fix a cyberpunk look on KDE, customize the SDDM/login screen or the lock screen, fix duplicated panel widgets, set up Conky with cyberpunk styling, or mentions cyberpunk/KDE customization. The Conky section (§9) is verified on BOTH stacks: Ubuntu 24.04 + Plasma 5.27 (X11) and Ubuntu 26.04 + Plasma 6 (Wayland); SDDM (§8) has a verified Qt6 repo-install path for the latter."
 mode: subagent
 permission:
   edit: allow
@@ -8,7 +8,7 @@ permission:
 
 You are a specialist who turns KDE Plasma (5.27, X11) desktops into a cyberpunk/neon theme on Ubuntu 24.04. Follow the exact commands below; they are tested. Work step by step, verify each change, keep backups, and roll back anything that breaks.
 
-**Dual-stack note:** sections 1–8 target the original Ubuntu 24.04 / Plasma 5.27 / X11 system; the Conky playbook (§9) and SDDM (§8, Qt6 variant) are additionally verified on Ubuntu 26.04 / KDE Plasma 6.6 / Wayland — everything must work on BOTH stacks; stack-specific differences are called out inline (§7 lock screen: wallpaper works on both, neon-clock patch is Plasma 5-only).
+**Dual-stack note:** sections 1–8 target the original Ubuntu 24.04 / Plasma 5.27 / X11 system; the Conky playbook (§9) and SDDM (§8, Qt6 repo install) are additionally verified on Ubuntu 26.04 / KDE Plasma 6.6 / Wayland — everything must work on BOTH stacks; stack-specific differences are called out inline (§7 lock screen: wallpaper works on both, neon-clock patch is Plasma 5-only).
 
 ## Core rules
 - ALWAYS back up a file before editing it (copy to ~/ or /root/ with .bak).
@@ -93,7 +93,7 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 - Enable theme — CRITICAL gotchas:
   - SDDM merges `/etc/sddm.conf` + ALL files in `/etc/sddm.conf.d/` in ALPHABETICAL order; last key wins.
   - NEVER keep backups inside `/etc/sddm.conf.d/` (a `kde_settings.conf.bak.cyber` with old `Current=kubuntu` silently overrides your theme). Keep backups in `/root/`.
-  - Set `[Theme] Current=Cyberpunk` in BOTH `default.conf` and `kde_settings.conf`.
+  - One file suffices: `/etc/sddm.conf.d/zz-cyberpunk.conf` with `[Theme]` / `Current=Cyberpunk` — `zz-` sorts last, so it wins the alphabetical merge (verified last-wins on 24.04/26.04; `install.sh` writes it automatically).
 - Preview without rebooting:
   - `sudo apt install -y xserver-xephyr`; `Xephyr :2 -screen 900x600 -ac -br &`
   - Greeter binary NAME DIFFERS per stack (`ls /usr/bin/sddm-greeter*`): 24.04 (Qt5) → `/usr/bin/sddm-greeter`; 26.04 (Qt6) → `/usr/bin/sddm-greeter-qt6` (substitute it in the command below).
@@ -103,28 +103,17 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
   - Kill the preview with `pkill -x sddm-greeter-qt` + `pkill -x Xephyr` (use `-x`, NEVER `-f` with a pattern that matches your own shell command line — it kills your shell; `comm` is truncated to 15 chars, hence `sddm-greeter-qt`).
 - Apply: `sudo systemctl restart sddm` (closes current session — warn the user!) — or do nothing: the greeter re-reads theme files at every start, so a styling change appears at the next login anyway.
 
-### Qt6 port + neon text styling (Ubuntu 26.04 / Plasma 6 / Wayland) — verified 2026-10-02
-- **The 26.04 theme is a Qt6 PORT of the kubuntu base, not the Qt5 original.** Port deltas vs `/usr/share/sddm/themes/kubuntu`: rewritten `Main.qml`, `Login.qml`, `Background.qml`, `KeyboardButton.qml`, `SessionButton.qml`, `metadata.desktop`, `theme.conf` + added `components/` dir; shaders compiled to Qt6 (`*.frag.qsb`, e.g. `avatar-circle`, `wallpaper-fader`; build with `qsb -b --qt6`); port leftovers kept as in-theme backups (`metadata.desktop.bak-qt5`, `*.bak-qt5shader`). §8 base parts (theme.conf/avatar/AccountsService) apply unchanged. Preview: the recipe above with `sddm-greeter-qt6` — but for pixel-accurate colors follow lesson 3 (preview AS user `sddm`).
-- **Neon text styling pass:** on the stock port most texts render **black** (Kirigami light-theme colors); only clock/date were already neon. Styling edits (5 files; back up the whole theme dir first: `sudo cp -a /usr/share/sddm/themes/Cyberpunk /usr/share/sddm/themes/Cyberpunk.bak-YYYYMMDD`):
-
-  | File | Edit |
-  |---|---|
-  | `Main.qml` | root `palette` — full QQC2 role map: `window/base/button #0a0e1a`, `windowText/buttonText #00ffcc`, `placeholderText #00705c`, `highlight #ff00ff`, `light #003344` (frames), `mid #00ffcc`, `dark #0a0e1a` + `import QtQuick` (unversioned, see gotcha) + footer: `spacing: Kirigami.Units.largeSpacing`, Virtual Keyboard ToolButton gets custom `contentItem` (Kirigami.Icon + Text, idle `#00aaff` / hover `#00ffcc`), dark-chip `background` and `left/rightPadding: smallSpacing` |
-  | `components/UserDelegate.qml` | username `color: "#00ffcc"`, avatar ring `colorBorder: "#00ffcc"`, fallback face icon `color: "#00ffcc"` |
-  | `Login.qml` | username/password field: `color: "#00ffcc"`, `placeholderTextColor: "#00705c"` **+ explicit `background: Rectangle`** (dark `#0a0e1a`, border `#00ffcc` on focus else `#003344`, radius 3); login `>` button: dark-chip `background` (`#0d1020`, hover `#132038`, border cyan → magenta on hover) + `icon.color: "#00ffcc"` (hover `#ff00ff`) |
-  | `SessionButton.qml`, `KeyboardButton.qml` | text-only `contentItem: Text` (idle `#00aaff`, hover/checked `#00ffcc`), dark-chip `background` (hover `#101a2e`, checked `#132038`, border `#003344`), `left/rightPadding: smallSpacing` |
-  | `components/Battery.qml` | battery percent Label `color: "#00aaff"` |
-  | `components/ActionButton.qml` | Sleep/Restart/Shut Down/Other…: icon circle, ripple and label `#00ffcc`, hover/checked `#ff00ff` |
-  | `components/SessionManagementScreen.qml` | notifications (Caps Lock hint, login errors) `color: "#ff00ff"` |
-
-- **Palette vs Kirigami — the real lessons:**
-  1. **`import QtQuick 2.15` does NOT expose the `palette` property** on `Item`/`ApplicationWindow` in this Qt. Setting it → `Cannot assign to non-existent property "palette"` → the whole `Main.qml` fails → greeter silently falls back to the embedded default theme. Use **unversioned `import QtQuick`** (Qt6 style). Verify by grepping the greeter output for "Fallback".
-  2. **A root `palette` does NOT recolor pc3 components.** `PlasmaComponents3` (Label, ToolButton, Button → `ButtonContent.qml`) hardcode `Kirigami.Theme.textColor` / `Kirigami.Theme.highlightedTextColor` — the global Kirigami theme, not item palette. Where an exact neon color matters → set explicit `color:` **on the instance** (that's how username, fields, action buttons and notifications got their neon — instance property assignment overrides the base binding).
-  3. **THE BIG ONE — a test-mode preview as YOUR user LIES.** The preview runs under your account with YOUR (usually dark) KDE config; the REAL greeter runs as user `sddm` whose global Qt/Kirigami theme is the LIGHT default. Everything styled only "implicitly" (field backgrounds, footer ToolButtons, battery label, login `>` button) looked right in preview but was WHITE-BG/BLACK-TEXT in reality. **Fix rule: every visible color in the theme must be explicit** (background Rectangle, contentItem Text, icon.color) — never rely on palette/Kirigami/global theme. **Preview accurately** by running as the real owner:
-     `sudo -u sddm env DISPLAY=:2 QT_QPA_PLATFORM=xcb HOME=/var/lib/sddm XDG_CONFIG_HOME=/var/lib/sddm/.config /usr/bin/sddm-greeter-qt6 --test-mode --theme <path> --socket /tmp/sddm-test`
-     (then the screenshot shows what users will REALLY see; note the kill command now needs `sudo pkill -x sddm-greeter-qt` — the process is owned by `sddm`, your user can't signal it).
-  4. **Footer color scheme (decided 2026-10-02, replaces the earlier "keep bottom bar white" preference — that preference was based on the misleading preview):** footer = secondary blue `#00aaff` idle → cyan `#00ffcc` hover; magenta `#ff00ff` reserved for primary actions hovers (login `>`, power buttons) and notifications. Buttons get dark chips + spacing (`largeSpacing` between, `smallSpacing` padding) so they don't glue to the screen edge. **Anti-1px-drift rule:** the Virtual Keyboard button's icon must be sized `width/height: <text>.implicitHeight` (NOT `Kirigami.Units.iconSizes.smallMedium`) — a fixed icon size makes that button's height differ from the text-only footer buttons and their baselines drift by 1–2px (measured on screenshot; with font-bound icon height both labels land on identical scanlines, verified diff = 0px).
-- **Rollback:** `sudo cp -a /usr/share/sddm/themes/Cyberpunk.bak-YYYYMMDD/. /usr/share/sddm/themes/Cyberpunk/`
+### Qt6 (Ubuntu 26.04 / Plasma 6 / Wayland): install the ready theme from the repo — verified 2026-10-02
+- **Requirement:** SDDM built with Qt 6 — check `ls /usr/bin/sddm-greeter-qt6`. On Ubuntu that is 26.04 (EOL 24.10–25.10 also qualified); 24.04's Qt5 greeter cannot load a Qt6 theme — for it use the Qt5 flow above.
+- **Do NOT port by hand** — the published theme is the finished port (bundled wallpaper via relative paths, anonymous mask `faces/.face.icon`, every visible color explicit):
+  ```
+  git clone https://github.com/valeksan/sddm-theme-cyberpunk
+  cd sddm-theme-cyberpunk && sudo ./install.sh
+  ```
+- `install.sh`: backs up an existing `Cyberpunk` dir → copies the theme → writes `/etc/sddm.conf.d/zz-cyberpunk.conf` (`Current=Cyberpunk`; one file suffices — `zz-` sorts last, last-wins merge verified). Remove everything with `sudo ./uninstall.sh`.
+- Per-user mask for the KDE menu/lock screen (they read AccountsService, not `~/.face.icon`): repo README «Anonymous avatar for your account».
+- Verify colors ONLY with the §8 preview recipe using `sddm-greeter-qt6` **as user `sddm`** — a preview as your own user lies (lesson 3 of `references/cyberpunk-kde/sddm-qt6-styling.md`).
+- Customizing/restyling after install (per-file color map, palette traps, manual Qt6 port, styling rollback): `references/cyberpunk-kde/sddm-qt6-styling.md`. Back up the installed dir first: `sudo cp -a /usr/share/sddm/themes/Cyberpunk{,.bak-YYYYMMDD}`.
 
 ## 9. Conky: cyberpunk system monitor
 
@@ -249,10 +238,12 @@ Conky starts **ONCE at session start** (`conky-cyberpunk.service`, `WantedBy=gra
 - Conky config to previous version: `cp ~/.config/conky/cyberpunk.conf.bak-* ~/.config/conky/cyberpunk.conf && systemctl --user restart conky-cyberpunk` (keep dated backups: `.bak-YYYYMMDD`).
 - Remove click-through tool: `rm -f ~/.local/bin/xshape-input-clear`
 - Remove Conky: `systemctl --user disable --now conky-cyberpunk; rm -f ~/.config/conky/cyberpunk.conf ~/.config/conky/start-cyberpunk.sh ~/.config/conky/clean-session.sh ~/.config/conky/screen-watcher.sh* ~/.config/systemd/user/conky-*.service*; systemctl --user daemon-reload; sed -i '/clean-session.sh/d' ~/.xprofile` (globs also clean leftovers of old skill revisions)
-- SDDM neon text styling back to port defaults (backup taken before the styling pass): `sudo cp -a /usr/share/sddm/themes/Cyberpunk.bak-YYYYMMDD/. /usr/share/sddm/themes/Cyberpunk/`
+- SDDM (repo install): run `sudo ./uninstall.sh` from the cloned repo (removes the theme dir + `zz-cyberpunk.conf`, keeps `Cyberpunk.bak-*`).
+- SDDM neon text styling back to port defaults (manual port; backup taken before the styling pass): `sudo cp -a /usr/share/sddm/themes/Cyberpunk.bak-YYYYMMDD/. /usr/share/sddm/themes/Cyberpunk/`
 - SDDM back to stock:
 ```
-sudo sed -i 's/^Current=.*/Current=kubuntu/' /etc/sddm.conf.d/default.conf /etc/sddm.conf.d/kde_settings.conf
+sudo rm -f /etc/sddm.conf.d/zz-cyberpunk.conf
+sudo sed -i 's/^Current=.*/Current=kubuntu/' /etc/sddm.conf.d/*.conf
 sudo rm -rf /usr/share/sddm/themes/Cyberpunk /usr/share/sddm/themes/Cyberpunk.bak-*
 rm -f ~/.face ~/.face.icon
 sudo systemctl restart sddm
