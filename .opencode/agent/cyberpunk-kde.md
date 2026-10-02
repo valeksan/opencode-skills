@@ -8,7 +8,7 @@ permission:
 
 You are a specialist who turns KDE Plasma (5.27, X11) desktops into a cyberpunk/neon theme on Ubuntu 24.04. Follow the exact commands below; they are tested. Work step by step, verify each change, keep backups, and roll back anything that breaks.
 
-**Dual-stack note:** sections 1–8 target the original Ubuntu 24.04 / Plasma 5.27 / X11 system. The Conky playbook (§9) is additionally verified on Ubuntu 26.04 / KDE Plasma 6.6 / Wayland — it must work on BOTH stacks; stack-specific differences are called out inline. **§8 (SDDM) also has a verified Qt6 variant for 26.04** (Qt6 theme port + neon text styling pass — see §8 "Qt6 port"). **§7 lock screen is split:** the wallpaper part (`kscreenlockerrc`) works on both stacks (applied on 26.04), but the neon-clock QML patch is **Plasma 5.27-only** — on Plasma 6 that file doesn't exist (§7).
+**Dual-stack note:** sections 1–8 target the original Ubuntu 24.04 / Plasma 5.27 / X11 system; the Conky playbook (§9) and SDDM (§8, Qt6 variant) are additionally verified on Ubuntu 26.04 / KDE Plasma 6.6 / Wayland — everything must work on BOTH stacks; stack-specific differences are called out inline (§7 lock screen: wallpaper works on both, neon-clock patch is Plasma 5-only).
 
 ## Core rules
 - ALWAYS back up a file before editing it (copy to ~/ or /root/ with .bak).
@@ -92,7 +92,7 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 - Neon clock: patch SYSTEM Breeze QML (custom look-and-feel package failed to load on 24.04):
   - `sudo cp /usr/share/plasma/look-and-feel/org.kde.breeze.desktop/contents/components/Clock.qml /root/Clock.qml.breeze.bak`
   - Replace: clock label `color:"#eafffb"`, `font.pointSize:72`, family `JetBrains Mono`, bold, `style: Text.Outline`, `styleColor:"#00ffcc"`; date `color:"#7fd4ff"`, size 26, same outline.
-- **PLASMA 6 CAVEAT (verified on 26.04):** `/usr/share/plasma/look-and-feel/org.kde.breeze.desktop/contents/components/Clock.qml` **does not exist** — Plasma 6 restructured the package (only `systemdialog/`, `logout/`, `splash/`, `layouts/`, `previews/` remain; no `components/`, no neon anywhere in `look-and-feel/`). On 26.04 ONLY the wallpaper part is applied; the clock stays stock Breeze. Do NOT blindly copy the patch — first locate the lock-screen clock QML in the Plasma 6 package (`dpkg -L plasma-workspace | grep -i 'lock.*qml\|clock'`) if a neon lock clock is wanted there.
+- **PLASMA 6 CAVEAT (verified on 26.04):** that `Clock.qml` **does not exist** — Plasma 6 restructured the package (no `components/`, no neon anywhere in `look-and-feel/`). On 26.04 apply ONLY the wallpaper part; the clock stays stock Breeze. Do NOT copy the patch blindly — first locate the lock clock QML: `dpkg -L plasma-workspace | grep -i 'lock.*qml\|clock'`.
 
 ## 8. SDDM login screen (neon theme + anonymous avatar)
 - Create theme from kubuntu (reliable base for Plasma 5.27):
@@ -101,7 +101,7 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 - Neon clock in `components/Clock.qml`: time label `color:"#00ffcc"`, `font.pointSize:52` wrapped in an `Item` with a cyan `DropShadow`; date `color:"#9fe8dc"`, `font.pointSize:22`. DropShadow must NOT be a direct child of a layout (QML warning) — wrap it in an Item.
 - Anonymous avatar (neon helmet, no face): make an SVG, convert to PNG 256:
   `rsvg-convert -w 256 -h 256 avatar.svg -o ~/.face.icon && cp ~/.face.icon ~/.face`
-  SDDM reads `~/.face.icon` automatically; the kubuntu theme draws it in a circle with a neon border (built-in shader in `components/UserDelegate.qml`).
+  SDDM reads `~/.face.icon` automatically; theme draws it in a circle with a neon border (shader in `components/UserDelegate.qml`).
 - CRITICAL — the lock screen and KDE user menu read the avatar from AccountsService, not from `~/.face.icon` (they keep showing the OLD icon otherwise):
   `sudo cp ~/.face.icon /var/lib/AccountsService/icons/$USER && sudo chown root:root /var/lib/AccountsService/icons/$USER && sudo chmod 644 /var/lib/AccountsService/icons/$USER`
 - Enable theme — CRITICAL gotchas:
@@ -109,21 +109,17 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
   - NEVER keep backups inside `/etc/sddm.conf.d/` (a `kde_settings.conf.bak.cyber` with old `Current=kubuntu` silently overrides your theme). Keep backups in `/root/`.
   - Set `[Theme] Current=Cyberpunk` in BOTH `default.conf` and `kde_settings.conf`.
 - Preview without rebooting:
-  - `sudo apt install -y xserver-xephyr`
-  - `Xephyr :2 -screen 900x600 -ac -br &`
-  - Greeter binary NAME DIFFERS per stack — check with `ls /usr/bin/sddm-greeter*`:
-    - 24.04 (Qt5): `/usr/bin/sddm-greeter`
-    - 26.04 (Qt6): `/usr/bin/sddm-greeter-qt6`
+  - `sudo apt install -y xserver-xephyr`; `Xephyr :2 -screen 900x600 -ac -br &`
+  - Greeter binary NAME DIFFERS per stack (`ls /usr/bin/sddm-greeter*`): 24.04 (Qt5) → `/usr/bin/sddm-greeter`; 26.04 (Qt6) → `/usr/bin/sddm-greeter-qt6` (substitute it in the command below).
   - `sudo env DISPLAY=:2 QT_QPA_PLATFORM=xcb /usr/bin/sddm-greeter --test-mode --theme /usr/share/sddm/themes/Cyberpunk --socket /tmp/sddm-test`
-  - screenshot: `DISPLAY=:2 import -window root shot.png`
-  - NOTE: plain `sddm --test-mode` ignores the config and picks its own default theme — always pass `--theme` explicitly via the greeter binary on Xephyr.
+  - screenshot: `DISPLAY=:2 import -window root shot.png`. Plain `sddm --test-mode` ignores the config and picks its default theme — always pass `--theme` explicitly.
+  - A QML load failure shows as "Fallback to embedded theme" in the log.
   - Kill the preview with `pkill -x sddm-greeter-qt` + `pkill -x Xephyr` (use `-x`, NEVER `-f` with a pattern that matches your own shell command line — it kills your shell; `comm` is truncated to 15 chars, hence `sddm-greeter-qt`).
 - Apply: `sudo systemctl restart sddm` (closes current session — warn the user!) — or do nothing: the greeter re-reads theme files at every start, so a styling change appears at the next login anyway.
 
 ### Qt6 port + neon text styling (Ubuntu 26.04 / Plasma 6 / Wayland) — verified 2026-10-02
-- **The 26.04 theme is a Qt6 PORT of the kubuntu base, not the Qt5 original.** Port deltas vs `/usr/share/sddm/themes/kubuntu`: rewritten `Main.qml`, `Login.qml`, `Background.qml`, `KeyboardButton.qml`, `SessionButton.qml`, `metadata.desktop`, `theme.conf` + added `components/` dir; shaders compiled to Qt6 (`*.frag.qsb`, e.g. `avatar-circle`, `wallpaper-fader`; build with `qsb -b --qt6`); port leftovers kept as in-theme backups (`metadata.desktop.bak-qt5`, `*.bak-qt5shader`). `theme.conf`/avatar/AccountsService parts from §8 apply unchanged.
-- **Preview (Qt6):** same Xephyr recipe as above but with `/usr/bin/sddm-greeter-qt6`, `QT_QPA_PLATFORM=xcb`, `DISPLAY=:2`. The greeter log is quiet under test mode (only harmless `test-mode` noise); if you see "Fallback to embedded theme" — a QML file failed to load (see the `palette` gotcha below), the port is broken.
-- **Neon text styling pass (what was black → what is now):** on the stock port, username and other texts render **black** (light-theme colors from Kirigami), only clock/date were already neon. Styling edits (5 files, backup of the whole theme dir first: `sudo cp -a /usr/share/sddm/themes/Cyberpunk /usr/share/sddm/themes/Cyberpunk.bak-YYYYMMDD`):
+- **The 26.04 theme is a Qt6 PORT of the kubuntu base, not the Qt5 original.** Port deltas vs `/usr/share/sddm/themes/kubuntu`: rewritten `Main.qml`, `Login.qml`, `Background.qml`, `KeyboardButton.qml`, `SessionButton.qml`, `metadata.desktop`, `theme.conf` + added `components/` dir; shaders compiled to Qt6 (`*.frag.qsb`, e.g. `avatar-circle`, `wallpaper-fader`; build with `qsb -b --qt6`); port leftovers kept as in-theme backups (`metadata.desktop.bak-qt5`, `*.bak-qt5shader`). §8 base parts (theme.conf/avatar/AccountsService) apply unchanged. Preview: the recipe above with `sddm-greeter-qt6` — but for pixel-accurate colors follow lesson 3 (preview AS user `sddm`).
+- **Neon text styling pass:** on the stock port most texts render **black** (Kirigami light-theme colors); only clock/date were already neon. Styling edits (5 files; back up the whole theme dir first: `sudo cp -a /usr/share/sddm/themes/Cyberpunk /usr/share/sddm/themes/Cyberpunk.bak-YYYYMMDD`):
 
   | File | Edit |
   |---|---|
@@ -146,50 +142,35 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 
 ## 9. Conky: cyberpunk system monitor
 
-**Works on both target stacks (verified):** Ubuntu 24.04 + KDE Plasma 5.27 (X11) and Ubuntu 26.04 + KDE Plasma 6.6 (Wayland/Xwayland). Stack-specific differences are called out inline (X-wait no-op on X11). Startup policy on BOTH stacks: conky starts **once at session start**, there is NO monitor-reconfiguration watcher — after a topology change restart manually (see «Startup policy»).
+**Verified on both stacks:** 24.04 + Plasma 5.27 (X11) and 26.04 + Plasma 6.6 (Wayland; X-wait block is a no-op on X11). Starts **once per session start**; NO watcher — after a monitor topology change restart manually (§ «Startup policy»).
 
-- Install: `sudo apt install -y conky-all fonts-jetbrainsmono xdotool bc libx11-dev libxext-dev` (+ `gcc` for the click-through tool: `command -v gcc || sudo apt install -y build-essential`)
-- Config: `~/.config/conky/cyberpunk.conf`
-- Launcher script: `~/.config/conky/start-cyberpunk.sh`
-- Click-through tool: `~/.local/bin/xshape-input-clear` (built from source, see below)
-- Systemd service: `~/.config/systemd/user/conky-cyberpunk.service` (no other units needed)
+- Packages: `sudo apt install -y conky-all fonts-jetbrainsmono xdotool bc libx11-dev libxext-dev` (+ `gcc`: `command -v gcc || sudo apt install -y build-essential`)
+- Files: config `~/.config/conky/cyberpunk.conf`, launcher `~/.config/conky/start-cyberpunk.sh`, cleaner `~/.config/conky/clean-session.sh`, tool `~/.local/bin/xshape-input-clear`, unit `~/.config/systemd/user/conky-cyberpunk.service` (no other units)
 
 ### Installation steps (in order)
-1. Install packages (incl. `xdotool`, `bc`, X11 headers for the click-through tool).
-2. Build the click-through tool `~/.local/bin/xshape-input-clear` (see «Click-through»).
-3. Create `~/.config/conky/cyberpunk.conf` (full reference config below — adapt hardware-specific values).
-4. Create `~/.config/conky/start-cyberpunk.sh` (full reference script below), `chmod +x`.
-5. Create `~/.config/conky/clean-session.sh` (see Autostart), `chmod +x`.
-6. Add `clean-session.sh` call to `~/.xprofile` (see Autostart).
-7. Create systemd services (see Autostart).
-8. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk` — conky starts ONCE per user session. No watcher is installed: after a monitor topology change restart manually (`systemctl --user restart conky-cyberpunk`).
-9. Verify:
+1. Install packages.
+2. Build `~/.local/bin/xshape-input-clear` (§ Click-through).
+3. Create `cyberpunk.conf` (reference below — adapt hardware-specific values).
+4. Create `start-cyberpunk.sh` (reference below), `chmod +x`.
+5. Create `clean-session.sh` (§ Autostart), `chmod +x`; add its call to `~/.xprofile`.
+6. Create the systemd unit (§ Autostart).
+7. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk`. No watcher: after a topology change run `systemctl --user restart conky-cyberpunk`.
+8. Verify:
    - `pgrep -a conky` → exactly ONE process
    - `xdotool getwindowgeometry $(xdotool search --class "Conky" | head -1)` → rightmost monitor, right gap ≈20px
    - `journalctl --user -u conky-cyberpunk.service -n 30 | grep 'input shape cleared'` → click-through applied
-   - drag a window over the panel → panel must go UNDER it; drag a selection over the panel area → must work (mouse passes through)
+   - drag a window over the panel → panel goes UNDER it; drag a selection over the panel area → works (mouse passes through)
 
 ### Visual theme
-- **Font**: JetBrains Mono (sizes 7-26 in the base design; auto-scaled per monitor, see below)
-- **Colors**: cyan `#00ffcc` (primary), magenta `#ff00ff` (headers), blue `#00aaff` (labels), dim gray `#888888` (secondary), dark bg `#0a0e1a`, border lines `#003344` / `#001a33`
+- **Font**: JetBrains Mono (sizes 7-26 in the base design; auto-scaled per monitor, § below)
+- **Colors**: cyan `#00ffcc` (primary), magenta `#ff00ff` (headers + CPU >80), purple `#8844ff` (CPU 50-80), blue `#00aaff` (labels), dim gray `#888888` (secondary), dark bg `#0a0e1a`, border lines `#003344` / `#001a33` — never green/yellow/red
 - **Background**: ARGB, `own_window_argb_value = 13` (95% transparent, text floats over wallpaper)
-- **Window layer (CRITICAL — verified on both stacks)**:
-  - `own_window_type = 'normal'` + `own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager'`
-  - Result: above wallpaper, **under ordinary windows** — correct behavior for a desktop widget.
-  - REJECTED: `dock` type + `above` hint — the panel floats OVER all windows (user complaint: "conky is drawn on top of windows"; note `dock` alone is a panel-level layer = always above windows).
-  - REJECTED: `desktop` type — on Wayland KWin maps X desktop-type windows UNDER the Plasma wallpaper layer: conky becomes completely invisible (process alive, log says «window type - desktop», screen shows nothing).
-  - Never add the `above` hint; `below` is the one that matters.
-- **Right margin**: `gap_x = 20` (px from the right edge of the target monitor; `alignment = 'top_right'`).
-- **Multi-monitor**: use `-m N` flag (Xinerama head index), NOT `alignment` + xdotool. `-m` renders directly on target monitor with NO flash on primary. N is the rightmost monitor, detected at launch.
+- **Window layer (CRITICAL — verified on both stacks)**: `own_window_type = 'normal'` + `own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager'` → above wallpaper, **under ordinary windows**. REJECTED `dock`+`above` (floats over windows) and `desktop` (Wayland: mapped under Plasma wallpaper → invisible) — rationales in Gotchas 11; never add `above`, `below` is the one that matters.
+- **Right margin**: `gap_x = 20` (px from right edge of target monitor; `alignment = 'top_right'`).
+- **Multi-monitor**: `-m N` flag (Xinerama head index), NOT `alignment`+xdotool (flash on primary); N = rightmost monitor, detected at launch.
 
 ### Auto-scaling to any resolution (Lua, base design 1920×1200)
-The config is Lua: at load time it detects the **rightmost monitor** (`xrandr --listmonitors`, parser verified on real output; on any failure defaults to 1920×1200 = exact original look) and computes:
-
-```
-scale = clamp( min(mon_w/1920, mon_h/1200), 0.5, 2.5 )
-```
-
-Scaled proportionally: `minimum/maximum_width` (base 370), every font `size=N`, every bar/graph dimension (`bar H,W`, `graph [iface] H,W` — via `string.gsub` over `conky.text` after the heredoc). Fixed in physical px: `gap_x`, `gap_y`.
+The config is Lua: at load it detects the **rightmost monitor** (`xrandr --listmonitors`; on any failure defaults to 1920×1200 = exact base look) and computes `scale = clamp(min(mon_w/1920, mon_h/1200), 0.5, 2.5)`. Scaled via `string.gsub` over `conky.text`: `minimum/maximum_width` (base 370), every font `size=N`, every `bar H,W` / `graph [iface] H,W`. Fixed in physical px: `gap_x`, `gap_y`.
 
 | monitor | scale | panel width | ~height | fits |
 |---|---|---|---|---|
@@ -202,17 +183,11 @@ Scaled proportionally: `minimum/maximum_width` (base 370), every font `size=N`, 
 Regression check: on a 1920×1200 rightmost monitor `scale = 1` must reproduce the base config byte-for-byte.
 
 ### Click-through (mouse works THROUGH the panel)
-The panel must not eat mouse events: rubber-band selection and clicks on the desktop under it must work as on empty desktop. Conky has no built-in option for this; the correct X mechanism is an **empty input shape** (SHAPE extension).
-
-- SHAPE is available on BOTH stacks: native X11 (24.04) and Xwayland (26.04) — verify with `xwininfo -root | grep -i shape`.
-- The `xshape` CLI is absent from newer Ubuntu repos (`x11-apps` is installed but ships without it; `apt-cache search xshape` is empty) → build the tool once:
+The panel must not eat mouse events (rubber-band selection/clicks under it must work as on empty desktop). Conky has no option for this; correct X mechanism = **empty input shape** (SHAPE ext). SHAPE exists on BOTH stacks (native X11 / Xwayland — verify: `xwininfo -root | grep -i shape`). The `xshape` CLI is absent from newer Ubuntu repos → build the tool once:
 
 **`/tmp/xshape-input-clear.c`:**
 ```c
-/* xshape-input-clear — set an EMPTY input shape on an X11 window.
- * Clicks in the window area fall through to windows below (click-through).
- * usage: xshape-input-clear <window-id>
- */
+/* xshape-input-clear <window-id> — set an EMPTY input shape => click-through. */
 #include <X11/Xlib.h>
 #include <X11/extensions/shape.h>
 #include <stdio.h>
@@ -248,17 +223,12 @@ gcc -O2 -Wall -o ~/.local/bin/xshape-input-clear /tmp/xshape-input-clear.c -lX11
 
 Note: `XShapeCombineRectangles` takes **9 arguments** (the 9th is `ordering`, e.g. `Unsorted`) — libXext headers differ from the older 8-arg examples found online.
 
-- **Must be re-applied after EVERY conky start** — a new window gets a fresh full input shape. The launcher script does it automatically (find window → call tool → «input shape cleared …» line appears in the unit journal).
-- Verify: `journalctl --user -u conky-cyberpunk.service -n 30 | grep 'input shape cleared'`, then drag a selection over the panel area — it must select.
+- **Must be re-applied after EVERY conky start** (new window = fresh full input shape) — the launcher does it automatically (`input shape cleared …` in the unit journal). Verify: `journalctl --user -u conky-cyberpunk.service -n 30 | grep 'input shape cleared'`, then drag a selection over the panel — it must select.
 
 ### Reference config `~/.config/conky/cyberpunk.conf`
 ```lua
--- Cyberpunk Conky — system monitor in neon style
--- Position: RIGHTMOST monitor, 20px right margin (gap_x = 20)
--- Panel auto-scales to the monitor size. Base design: 1920x1200.
--- Detects the rightmost monitor itself (must match start-cyberpunk.sh -m logic),
--- so common resolutions (1366x768, 1920x1080, 1920x1200, 2560x1440,
--- 2560x1080, 3440x1440, 3840x2160 ...) get a proportionally sized panel.
+-- Cyberpunk Conky — neon system monitor. Auto-scales to the rightmost
+-- monitor (base design 1920x1200, gap_x = 20); see § Auto-scaling above.
 
 -- === detect rightmost monitor geometry ===
 local mon_w, mon_h = 1920, 1200   -- safe default = base design size
@@ -407,41 +377,18 @@ conky.text = conky.text:gsub("bar%s+(%d+),(%d+)",
     function(h, w) return "bar " .. sc(tonumber(h)) .. "," .. sc(tonumber(w)) end)
 ```
 
-> **Hardware note (adapt before applying):** `enp6s0`/`amn0` — NIC names (`ip -br link`), `amdgpu-pci-0700` — sensor chip (`sensors`), `gigabyte_wmi-virtual-0` — motherboard sensor (may be absent → drop that term), `card0` — DRM card (AMD), `/` labeled «Samsung» — cosmetic, `docker ps` — drop the DOCKER section without Docker. On NVIDIA use the nvidia driver sensor path instead of amdgpu.
-
-### CPU load color coding (stays in cyberpunk palette)
-```
-${if_match ${cpu} > 80}${color ff00ff}...      # magenta when hot
-${else}${if_match ${cpu} > 50}${color 8844ff}...  # purple when warm
-${else}${color 00ffcc}...                         # cyan when cool
-${endif}${endif}
-```
-Apply same color to `%` text and `cpubar`. Keeps palette consistent — never green/yellow/red.
+> **Hardware note (adapt before applying):** `enp6s0`/`amn0` — NIC names (`ip -br link`), `amdgpu-pci-0700` — sensor chip (`sensors`), `gigabyte_wmi-virtual-0` — motherboard sensor (may be absent → drop that term), `card0` — DRM card (AMD), VRAM paths `/sys/class/drm/card0/device/mem_info_vram_{used,total}` (bytes; MB = `echo "scale=1; $(cat <path>)/1048576" | bc`), `/` labeled «Samsung» — cosmetic, `docker ps` — drop the DOCKER section without Docker. On NVIDIA use the nvidia driver sensor path instead of amdgpu.
 
 ### Widgets included
-1. **Clock** — `time %H:%M:%S` bold size 26, date size 12
-2. **CPU** — total bar + per-core % text (compact grid) + `cpugraph`
-3. **GPU** — load %, temp, fan RPM, power (PPT), VRAM bar (`mem_info_vram_used/total` via sysfs + `execbar`)
-4. **Temperatures** — CPU Tctl, GPU edge, motherboard
-5. **Memory** — RAM bar + swap
-6. **Disk** — usage bar + R/W speed + `diskiograph`
-7. **Network** — IP per interface + `downspeedgraph`/`upspeedgraph` + total
-8. **Docker** — running containers list via `${exec docker ps --format ...}`, or "no containers" via `${if_empty}`
-9. **System** — uptime, kernel, top CPU process, top RAM process, process count
+Clock, CPU (total bar + per-core % + graph, color-coded by load), GPU (load/temp/fan/PPT/VRAM bar), temperatures (CPU/GPU/mobo), memory+swap, disk (usage + R/W + graph), network (IPs + graphs + totals), Docker list, system (uptime/kernel/top processes) — all defined in the reference config.
 
 ### Launcher `start-cyberpunk.sh` (rightmost monitor + X-wait + click-through)
-Conky should always appear on the RIGHTMOST monitor, regardless of setup.
-DO NOT hardcode monitor index or use xdotool to move windows.
-Use `-m N` flag where N is detected at launch time.
-
-The X-wait block is a **no-op on X11** (DISPLAY already set) and protects Wayland sessions: the systemd unit may start before Xwayland, conky then dies with "can't open display" → coredump → drkonqi noise.
+Conky must appear on the RIGHTMOST monitor: never hardcode the index, never move windows with xdotool — use `-m N` with N detected at launch. The X-wait block is a **no-op on X11** (DISPLAY already set) and protects Wayland: the unit may start before Xwayland → conky dies with "can't open display" (coredump + drkonqi).
 
 ```bash
 #!/bin/bash
-# Cyberpunk Conky — always on the RIGHTMOST monitor
-
-# Wait for X display: at session start this unit may run before XWayland is up
-# (conky crashed with "can't open display" -> coredump -> drkonqi noise).
+# Cyberpunk Conky — rightmost monitor. Wait for X at session start (Wayland):
+# unit may run before XWayland, conky then dies "can't open display".
 if [ -z "$DISPLAY" ]; then
     for _ in $(seq 60); do
         xsock=$(ls /tmp/.X11-unix/X* 2>/dev/null | head -1)
@@ -453,7 +400,7 @@ if [ -z "$DISPLAY" ]; then
     done
 fi
 
-# Kill any existing conky instance (KDE session restore may have launched one)
+# Kill leftover conky (KDE session restore may have launched one)
 pkill -f 'conky -c.*cyberpunk' 2>/dev/null
 sleep 1
 
@@ -473,12 +420,9 @@ RIGHTMOST=$(xrandr --listmonitors 2>/dev/null | awk '
 ')
 [ -z "$RIGHTMOST" ] && RIGHTMOST=0
 
-# Launch conky on that monitor
 conky -c ~/.config/conky/cyberpunk.conf -m "$RIGHTMOST" -d
 
-# Click-through: clear the input shape of the conky window so mouse events
-# (selection, clicks) pass through it to the desktop below. Must run after
-# every conky start — a new window gets a fresh (full) input shape.
+# Click-through: clear input shape (new window = fresh full shape) — runs after every start
 if [ -x "$HOME/.local/bin/xshape-input-clear" ]; then
     CWID=""
     for _ in $(seq 30); do
@@ -497,12 +441,7 @@ fi
 ```
 
 ### Autostart (systemd + .xprofile, NOT .desktop)
-DO NOT use `~/.config/autostart/*.desktop` for Conky — KDE/systemd treats it as a separate autostart entry and launches a SECOND Conky instance. Use systemd user services instead.
-
-**Two-layer defense against KDE session restore duplicates:**
-
-1. **`.xprofile`** — runs BEFORE ksmserver starts, cleans `ksmserverrc` so KDE never restores Conky.
-2. **`start-cyberpunk.sh`** — `pkill` any leftover conky before launching (belt and suspenders).
+NEVER use `~/.config/autostart/*.desktop` for Conky — KDE/systemd treats it as a separate entry → SECOND Conky instance (Gotcha 1). Two-layer defense against KDE session-restore duplicates (Gotcha 2): (1) `.xprofile` runs BEFORE ksmserver and strips Conky from `ksmserverrc`; (2) `start-cyberpunk.sh` pkills leftovers.
 
 **`~/.xprofile`** (add at the end):
 ```bash
@@ -511,13 +450,12 @@ DO NOT use `~/.config/autostart/*.desktop` for Conky — KDE/systemd treats it a
 [ -x ~/.config/conky/clean-session.sh ] && ~/.config/conky/clean-session.sh
 ```
 
-**`~/.config/conky/clean-session.sh`:** (removes conky from KDE session save to prevent duplicate launches)
+**`~/.config/conky/clean-session.sh`:** strips the `[LegacySession]` section from `~/.config/ksmserverrc` so KDE never restores Conky:
 ```bash
 #!/bin/bash
-# KDE's ksmserver saves all running apps to ~/.config/ksmserverrc at logout,
-# including Conky. On next login it restores them BEFORE systemd services start,
-# causing a duplicate (KDE-restored + systemd-launched = 2-3 Conky windows).
-# This script strips the LegacySession section so KDE never restores Conky.
+# ksmserver saves all running X11 clients (incl. Conky) at logout and restores
+# them BEFORE systemd services start => 2-3 Conky windows. Remove Conky from
+# the saved session here (runs from .xprofile, before ksmserver).
 KSMSERVER_RC="$HOME/.config/ksmserverrc"
 [ -f "$KSMSERVER_RC" ] || exit 0
 python3 -c "
@@ -550,57 +488,32 @@ WantedBy=graphical-session.target
 ```
 
 ### Startup policy: session start only (no watcher)
-Conky starts **ONCE at session start** (`conky-cyberpunk.service`, `WantedBy=graphical-session.target`) and is NOT restarted on monitor reconfiguration (plug/unplug, resolution change, sleep/wake) — on either stack. If a topology change leaves conky on the old/wrong monitor, restart it manually: `systemctl --user restart conky-cyberpunk` (it re-detects the rightmost monitor at start).
-
-> An earlier revision shipped an optional kscreen-`configChanged` listener (`screen-watcher.sh` + `conky-screen-watcher.service`) for auto-reposition — dropped from the skill: disabled by default everywhere, its DBus signal is unreliable on Plasma 6, and the entire job is this one restart command. It remains in git history if ever needed.
-
-### Key Conky syntax
-- `${execbar expr}` — progress bar from shell expression (0-100)
-- `${execi N cmd}` — run command every N seconds (cache-heavy commands)
-- `${cpugraph W×H color1 color2}` — CPU load graph
-- `${downspeedgraph iface W×H color1 color2}` — network download graph
-- `${diskiograph W×H color1 color2}` — disk I/O graph
-- `${if_match ${var} > N}...${else}...${endif}` — conditional rendering
-- `${if_empty "${exec cmd}"}...${else}...${endif}` — check if command output is empty
-
-### GPU VRAM via sysfs
-```
-/sys/class/drm/card0/device/mem_info_vram_used   # bytes
-/sys/class/drm/card0/device/mem_info_vram_total   # bytes
-/sys/class/drm/card0/device/gpu_busy_percent      # 0-100
-```
-Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
+Conky starts **ONCE at session start** (`conky-cyberpunk.service`, `WantedBy=graphical-session.target`), NOT restarted on monitor reconfiguration (plug/unplug, resolution, sleep/wake) — on either stack. After a topology change: `systemctl --user restart conky-cyberpunk` (re-detects rightmost monitor at start). A watcher (`screen-watcher.sh`, kscreen `configChanged` listener) existed in earlier revisions and was dropped — its DBus signal is unreliable on Plasma 6; remains in git history.
 
 ### Gotchas (lessons learned the hard way)
-1. **NEVER use .desktop autostart for Conky** — KDE/systemd creates a separate `app-conky@autostart.service` that launches Conky INDEPENDENTLY of your script, resulting in TWO Conky windows (one on wrong monitor, one correct). Use systemd user services only.
-2. **KDE session restore (ksmserverrc) duplicates Conky** — KDE's `ksmserver` saves ALL running X11 clients to `~/.config/ksmserverrc` `[LegacySession]` section at logout. On next login it restores them BEFORE systemd services start, causing 2-3 Conky copies (KDE-restored + systemd-launched). Fix: TWO layers — (a) `clean-session.sh` in `~/.xprofile` runs BEFORE ksmserver and strips LegacySession; (b) `pkill` in `start-cyberpunk.sh` kills any leftover before launching. `ExecStartPre` in the systemd service alone is TOO LATE — ksmserver restores before systemd user services start.
-3. **NEVER use xdotool to move Conky windows** — causes visible flash on primary monitor before move. Use `-m N` flag instead, which renders directly on target monitor.
-4. **NEVER use `alignment` + `gap_x/gap_y` for multi-monitor** — always targets primary monitor. Use `-m N`.
-5. **`killall conky` in launcher script races with systemd** — systemd service's `Type=forking` may start while script kills the previous instance. Let systemd handle lifecycle; script should only launch.
-6. `${if_match}` comparisons fail silently if quotes mismatch — test with `${exec echo}` first.
-7. `execbar` expects 0-100 output; shell math must produce a plain number.
-8. `${exec docker ...}` returns empty when Docker is stopped — always wrap in `${if_empty}`.
-9. `cpugraph` without CPU number = all CPUs averaged; `cpugraph 0` = CPU0 only.
-10. Window height depends on content AND resolution — the Lua auto-scaling fits the panel to any common resolution (see the table); after adding/removing widgets re-check with `xdotool getwindowgeometry` that the bottom edge stays above the screen edge.
-11. JetBrains Mono must be installed (`sudo apt install -y fonts-jetbrainsmono`); fallback fonts render ugly.
-12. **Window layer — only `normal`+`below` works**: `dock` type + `above` hint floats over ALL windows (rejected), `desktop` type is mapped under the Plasma wallpaper layer on Wayland and becomes invisible (rejected). Do not add `above`.
-13. **Click-through resets on every conky start** (a new window gets a full input shape) — the launcher must re-run `~/.local/bin/xshape-input-clear`; the `xshape` CLI is absent from newer Ubuntu `x11-apps`, build the tool from source (see «Click-through»). `XShapeCombineRectangles` takes 9 args (the 9th is `ordering`).
-14. **Wayland session-start race**: the systemd user unit may start before Xwayland — conky dies with "can't open display" (coredump + drkonqi popup). The DISPLAY-wait block in the launcher fixes it; on X11 it is a no-op (DISPLAY already set).
-15. `${exec sensors ...}` and interface names are hardware-specific — adapt them (`sensors`, `ip -br link`, `lsblk`) or drop whole sections (see hardware note under the reference config), otherwise widgets show empty values.
-16. **Monitor topology change does NOT move conky** — by policy there is no auto-restart watcher (it was dropped: unreliable kscreen signal on Plasma 6, and the job is one command). Run `systemctl --user restart conky-cyberpunk` manually; conky re-detects the rightmost monitor at start.
+1. **NEVER use .desktop autostart for Conky** — creates an independent `app-conky@autostart.service` → TWO Conky windows (one on wrong monitor). Systemd user services only.
+2. **KDE session restore (ksmserverrc) duplicates Conky** — `ksmserver` saves ALL X11 clients to `~/.config/ksmserverrc` `[LegacySession]` at logout and restores them BEFORE systemd user services start → 2-3 copies. Fix is TWO layers: `clean-session.sh` in `~/.xprofile` (runs before ksmserver, strips LegacySession) + `pkill` in `start-cyberpunk.sh`. `ExecStartPre` alone is TOO LATE.
+3. **NEVER move Conky with xdotool, NEVER use `alignment`+`gap_x/gap_y` for multi-monitor** — both target the primary monitor (xdotool also flashes it first). Always `-m N`.
+4. **`killall conky` in launcher races with systemd** (`Type=forking`) — the launcher's targeted `pkill` + `sleep 1` is fine; don't let a script blindly manage the lifecycle.
+5. `${if_match}` comparisons fail silently if quotes mismatch — test with `${exec echo}` first.
+6. `execbar` expects 0-100 output; shell math must produce a plain number.
+7. `${exec docker ...}` returns empty when Docker is stopped — always wrap in `${if_empty}`.
+8. `cpugraph` without CPU number = all CPUs averaged; `cpugraph 0` = CPU0 only.
+9. Window height depends on content AND resolution — the Lua auto-scaling fits any common resolution (table above); after adding/removing widgets re-check with `xdotool getwindowgeometry` that the bottom edge stays above the screen edge.
+10. JetBrains Mono must be installed (`sudo apt install -y fonts-jetbrainsmono`); fallback fonts render ugly.
+11. **Window layer — only `normal`+`below` works**: `dock`+`above` floats over ALL windows (rejected — user saw conky on top of windows), `desktop` is mapped under the Plasma wallpaper on Wayland → invisible (rejected: process alive, log «window type - desktop», screen blank). Do not add `above`.
+12. **Click-through resets on every conky start** — launcher must re-run `xshape-input-clear` every time (details/source: § Click-through).
+13. **Wayland session-start race** — unit may start before Xwayland → conky dies "can't open display"; launcher's X-wait fixes it (no-op on X11).
+14. `${exec sensors ...}` and interface names are hardware-specific — adapt them (`sensors`, `ip -br link`, `lsblk`) or drop whole sections (hardware note under the reference config), otherwise widgets show empty values.
+15. **Monitor topology change does NOT move conky** — restart manually: `systemctl --user restart conky-cyberpunk` (§ Startup policy).
 
 ## 10. Troubleshooting cheatsheet
-1. `plasma-apply-wallpaperimage` resets wallpaper plugin to image — reorder ops or re-apply slideshow after.
-2. Slideshow from raw config unreliable -> systemd timer.
-3. Kickoff icon must be in `[Configuration][General]`, not root `[Configuration]`.
-4. Aurorae themes REQUIRE `kpackagetool5 -t KWin/Decoration -i <dir>` registration; metadata Id must match folder name.
-5. After SVG/icon changes clear `~/.cache/icon-cache.kcache` and `plasma-svgelements-*`, restart plasmashell.
-6. `kwin_x11 --replace` fully reloads decorations; plain reconfigure may keep old window decos.
-7. Check errors: `journalctl -b | grep -iE 'kwin|kscreenlocker|plasma|sddm' | grep -iE 'error|fail'`.
-8. `~/.bashrc` may set `QT_STYLE_OVERRIDE=""` — overrides Kvantum for shells.
-9. SDDM reads ALL files in `/etc/sddm.conf.d/` alphabetically — any backup named `*.conf*` there overrides settings. Verify with: `strace -f -e openat sddm --test-mode 2>&1 | grep sddm.conf.d`.
-10. Lock screen / KDE user menu shows the WRONG (old) avatar: icon comes from `/var/lib/AccountsService/icons/<user>` — overwrite it from `~/.face.icon` (sec. 8).
-11. Duplicated panel widgets (e.g. lock/logout, clock twice): a widget id listed TWICE in `[Containments][<panel>][General] AppletOrder=...` in `~/.config/plasma-org.kde.plasma.desktop-appletsrc` renders twice. Remove the duplicate id from the config, then restart plasmashell. NEVER remove duplicates via the GUI — it can wipe the whole panel.
+1. Check errors: `journalctl -b | grep -iE 'kwin|kscreenlocker|plasma|sddm' | grep -iE 'error|fail'`.
+2. `~/.bashrc` may set `QT_STYLE_OVERRIDE=""` — overrides Kvantum for shells.
+3. SDDM: config/backup gotchas in §8 (alphabetical merge in `/etc/sddm.conf.d/` — any `*.conf*` backup there overrides settings). Find the winning file: `strace -f -e openat sddm --test-mode 2>&1 | grep sddm.conf.d`.
+4. Lock screen / KDE user menu shows the OLD avatar → §8 AccountsService fix.
+5. Wallpapers/Kickoff/Aurorae/icon-cache gotchas live in the NOTE/CRITICAL lines of §1, §2, §5.
+6. Duplicated panel widgets (e.g. lock/logout, clock twice): a widget id listed TWICE in `[Containments][<panel>][General] AppletOrder=...` in `~/.config/plasma-org.kde.plasma.desktop-appletsrc` renders twice. Remove the duplicate id from the config, then restart plasmashell. NEVER remove duplicates via the GUI — it can wipe the whole panel.
 
 ## 11. Rollback
 - Lock clock: `sudo cp /root/Clock.qml.breeze.bak <original path>`
@@ -611,7 +524,7 @@ Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
 - Remove timer: `systemctl --user disable --now cyber-wallpaper.timer`.
 - Conky config to previous version: `cp ~/.config/conky/cyberpunk.conf.bak-* ~/.config/conky/cyberpunk.conf && systemctl --user restart conky-cyberpunk` (keep dated backups: `.bak-YYYYMMDD`).
 - Remove click-through tool: `rm -f ~/.local/bin/xshape-input-clear`
-- Remove Conky: `systemctl --user disable --now conky-cyberpunk; rm -f ~/.config/conky/cyberpunk.conf ~/.config/conky/start-cyberpunk.sh ~/.config/conky/clean-session.sh ~/.config/conky/screen-watcher.sh* ~/.config/systemd/user/conky-*.service*; systemctl --user daemon-reload; sed -i '/clean-session.sh/d' ~/.xprofile` (the `screen-watcher*`/`conky-screen-watcher.service*` globs clean up leftovers from skill revisions that still shipped the watcher)
+- Remove Conky: `systemctl --user disable --now conky-cyberpunk; rm -f ~/.config/conky/cyberpunk.conf ~/.config/conky/start-cyberpunk.sh ~/.config/conky/clean-session.sh ~/.config/conky/screen-watcher.sh* ~/.config/systemd/user/conky-*.service*; systemctl --user daemon-reload; sed -i '/clean-session.sh/d' ~/.xprofile` (globs also clean leftovers of old skill revisions)
 - SDDM neon text styling back to port defaults (backup taken before the styling pass): `sudo cp -a /usr/share/sddm/themes/Cyberpunk.bak-YYYYMMDD/. /usr/share/sddm/themes/Cyberpunk/`
 - SDDM back to stock:
 ```
@@ -624,9 +537,4 @@ sudo systemctl restart sddm
 ## 12. Final report
 When done, summarize: what was changed, what to verify visually (accent cyan, neon window frame on Dolphin/Konsole, neon lock clock — Plasma 5 only, on Plasma 6 the wallpaper part applies and the clock stays stock —, PS1, neon SDDM login with anonymous avatar and neon texts: username/action buttons cyan, dark input fields with cyan borders, footer blue→cyan hover, notifications magenta, Conky on rightmost monitor with cyberpunk theme), backups created, and any steps needing logout/reboot.
 
-Verify Conky:
-- `pgrep -c conky` → 1
-- `xdotool getwindowgeometry $(xdotool search --class "Conky" | head -1)` → rightmost monitor, right gap ≈20px
-- drag a window over the panel → panel goes UNDER it (layer `normal`+`below` works)
-- drag a selection over the panel area → selection works (click-through, SHAPE applied — confirm via `journalctl --user -u conky-cyberpunk.service -n 30 | grep 'input shape cleared'`)
-- panel size proportional on the current resolution (auto-scaling, base 1920×1200)
+Verify Conky per §9 step 8 (one process, rightmost monitor ≈20px gap, click-through journal line + drag tests, proportional size).
