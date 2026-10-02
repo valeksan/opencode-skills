@@ -28,7 +28,9 @@ Transforms a stock KDE Plasma 5.27 (X11) desktop on Ubuntu 24.04 into a cyberpun
 - 📊 Conky system monitor: CPU/GPU temps, VRAM, disk/network graphs, Docker, color-coded load, under-windows layer, click-through (mouse works through the panel), auto-scaling to any screen resolution
 - 🛠️ Panel widget deduplication, rollback procedures, verification checklists
 
-**File:** `.opencode/agent/cyberpunk-kde.md`
+**Files:**
+- Skill: `.opencode/agent/cyberpunk-kde.md` — narrative, commands, lessons
+- Artifacts: `references/cyberpunk-kde/` — deployable file contents (Conky config, launcher, cleaner, systemd unit, C click-through tool, PS1). The skill reads them from this directory at run time, which keeps the skill file small (progressive disclosure, the standard skills pattern).
 
 ### Screenshots
 
@@ -57,12 +59,15 @@ Skills work in any project or globally on any machine with opencode installed.
 
 **Globally (recommended):**
 ```bash
-mkdir -p ~/.opencode/agent
-cp .opencode/agent/*.md ~/.opencode/agent/
+git clone https://github.com/valeksan/opencode-skills.git ~/Projects/personal-skills
+cp ~/Projects/personal-skills/.opencode/agent/*.md ~/.opencode/agent/
 ```
+> The clone path matters: the skill references artifacts at
+> `/home/vi/Projects/personal-skills/references/cyberpunk-kde/` — clone to that
+> path (or adjust the paths inside the skill once after cloning).
 
 **Per-project (local):**
-Keep files in `.opencode/agent/` inside your repository.
+Keep `.opencode/agent/*.md` inside your repository (also copy `references/` and fix the paths).
 
 ### Run
 
@@ -108,6 +113,8 @@ The agent executes everything autonomously: audit → apply changes one by one w
 personal-skills/
 ├── README.md
 ├── assets/                  # screenshots
+├── references/
+│   └── cyberpunk-kde/       # deployable artifacts (conky.conf, scripts, unit, C tool, PS1)
 └── .opencode/
     └── agent/               # opencode skills
         └── cyberpunk-kde.md

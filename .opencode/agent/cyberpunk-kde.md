@@ -65,25 +65,11 @@ grep -E 'ColorScheme|Theme' ~/.config/kdeglobals
 - Browsers draw their own headers (CSD) — decoration only visible on Dolphin/Konsole/System Settings.
 
 ## 6. Neon PS1 with git status
-- Append to `~/.bashrc` (see below). Reload with new terminal tab.
-```
-git_prompt() {
-    local branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-    if [ -n "$branch" ]; then
-        local dirty="○"; [ -n "$(git status --porcelain 2>/dev/null)" ] && dirty="●"
-        local ahead=""
-        if git rev-parse @{u} >/dev/null 2>&1; then
-            ahead=$(git rev-list --left-right --count @{u}...HEAD 2>/dev/null | awk '{printf " ↑%s ↓%s", $1, $2}')
-        fi
-        echo -e " \[\e[38;5;51m\](git:\[\e[38;5;45m\]${branch}\[\e[38;5;207m\]${dirty}\[\e[38;5;39m\]${ahead}\[\e[38;5;51m\])"
-    fi
-}
-PS1='\n\[\e[38;5;45m\]╭─\[\e[38;5;51m\]\u\[\e[38;5;39m\]@\[\e[38;5;45m\]\h \[\e[38;5;33m\]\w\[$(git_prompt)\]\n\[\e[38;5;45m\]╰─\[\e[38;5;51m\]❯\[\e[0m\] '
-```
+- Append the contents of `/home/vi/Projects/personal-skills/references/cyberpunk-kde/ps1-neon.sh` to `~/.bashrc` (reload = new terminal tab).
 
 ## 7. Lock screen: cyber wallpaper + neon clock
 - **Stack status:** wallpaper part below is verified on BOTH stacks (applied on 26.04 too — `kscreenlockerrc` format unchanged). The neon-clock patch is **Plasma 5.27/X11 ONLY** — see caveat at the end of this section.
-- Wallpaper in `~/.config/kscreenlockerrc`:
+- Wallpaper in `~/.config/kscreenlockerrc` (write the REAL username — `$USER` is not expanded in this file):
 ```
 [Greeter][Wallpaper][org.kde.image][General]
 FillMode=2
@@ -146,12 +132,13 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 
 - Packages: `sudo apt install -y conky-all fonts-jetbrainsmono xdotool bc libx11-dev libxext-dev` (+ `gcc`: `command -v gcc || sudo apt install -y build-essential`)
 - Files: config `~/.config/conky/cyberpunk.conf`, launcher `~/.config/conky/start-cyberpunk.sh`, cleaner `~/.config/conky/clean-session.sh`, tool `~/.local/bin/xshape-input-clear`, unit `~/.config/systemd/user/conky-cyberpunk.service` (no other units)
+- File contents: `/home/vi/Projects/personal-skills/references/cyberpunk-kde/` (config, launcher, cleaner, unit, C source, PS1) — Read them from there when deploying; this file keeps the narrative only.
 
 ### Installation steps (in order)
 1. Install packages.
 2. Build `~/.local/bin/xshape-input-clear` (§ Click-through).
-3. Create `cyberpunk.conf` (reference below — adapt hardware-specific values).
-4. Create `start-cyberpunk.sh` (reference below), `chmod +x`.
+3. Write `/home/vi/Projects/personal-skills/references/cyberpunk-kde/cyberpunk.conf` to `~/.config/conky/cyberpunk.conf` (adapt hardware-specific values).
+4. Write `/home/vi/Projects/personal-skills/references/cyberpunk-kde/start-cyberpunk.sh` to `~/.config/conky/start-cyberpunk.sh`, `chmod +x`.
 5. Create `clean-session.sh` (§ Autostart), `chmod +x`; add its call to `~/.xprofile`.
 6. Create the systemd unit (§ Autostart).
 7. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk`. No watcher: after a topology change run `systemctl --user restart conky-cyberpunk`.
@@ -185,36 +172,7 @@ Regression check: on a 1920×1200 rightmost monitor `scale = 1` must reproduce t
 ### Click-through (mouse works THROUGH the panel)
 The panel must not eat mouse events (rubber-band selection/clicks under it must work as on empty desktop). Conky has no option for this; correct X mechanism = **empty input shape** (SHAPE ext). SHAPE exists on BOTH stacks (native X11 / Xwayland — verify: `xwininfo -root | grep -i shape`). The `xshape` CLI is absent from newer Ubuntu repos → build the tool once:
 
-**`/tmp/xshape-input-clear.c`:**
-```c
-/* xshape-input-clear <window-id> — set an EMPTY input shape => click-through. */
-#include <X11/Xlib.h>
-#include <X11/extensions/shape.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-int main(int argc, char **argv) {
-    if (argc < 2) {
-        fprintf(stderr, "usage: %s <window-id>\n", argv[0]);
-        return 2;
-    }
-    Display *d = XOpenDisplay(NULL);
-    if (!d) { fprintf(stderr, "cannot open display\n"); return 1; }
-    Window w = strtoul(argv[1], NULL, 0);
-    int ev, err, evmaj, evmin;
-    if (!XShapeQueryExtension(d, &ev, &err)) {
-        fprintf(stderr, "SHAPE extension not available\n");
-        return 1;
-    }
-    XShapeQueryVersion(d, &evmaj, &evmin);
-    /* empty input region -> pointer events pass through */
-    XShapeCombineRectangles(d, w, ShapeInput, 0, 0, NULL, 0, ShapeSet, Unsorted);
-    XSync(d, False);
-    printf("input shape cleared for window %s (SHAPE %d.%d)\n", argv[1], evmaj, evmin);
-    XCloseDisplay(d);
-    return 0;
-}
-```
+Source: `/home/vi/Projects/personal-skills/references/cyberpunk-kde/xshape-input-clear.c` — copy to `/tmp/xshape-input-clear.c`, then build:
 
 ```bash
 mkdir -p ~/.local/bin
@@ -226,156 +184,7 @@ Note: `XShapeCombineRectangles` takes **9 arguments** (the 9th is `ordering`, e.
 - **Must be re-applied after EVERY conky start** (new window = fresh full input shape) — the launcher does it automatically (`input shape cleared …` in the unit journal). Verify: `journalctl --user -u conky-cyberpunk.service -n 30 | grep 'input shape cleared'`, then drag a selection over the panel — it must select.
 
 ### Reference config `~/.config/conky/cyberpunk.conf`
-```lua
--- Cyberpunk Conky — neon system monitor. Auto-scales to the rightmost
--- monitor (base design 1920x1200, gap_x = 20); see § Auto-scaling above.
-
--- === detect rightmost monitor geometry ===
-local mon_w, mon_h = 1920, 1200   -- safe default = base design size
-local xio = io.popen("xrandr --listmonitors 2>/dev/null")
-if xio then
-    local best_x = -1
-    for line in xio:lines() do
-        -- geometry token looks like: 1920/509x1200/310+1920+0
-        local w, h, x = line:match("(%d+)/%d+x(%d+)/%d+%+(%d+)%+%d+")
-        if w then
-            x = tonumber(x)
-            if x >= best_x then best_x = x; mon_w = tonumber(w); mon_h = tonumber(h) end
-        end
-    end
-    xio:close()
-end
-
--- === scale factor: fit BOTH dimensions (base 1920x1200) ===
-local scale = math.min(mon_w / 1920, mon_h / 1200)
-if scale < 0.5 then scale = 0.5 elseif scale > 2.5 then scale = 2.5 end
-
-local function sc(n)
-    local v = math.floor(n * scale + 0.5)
-    if v < 1 then v = 1 end
-    return v
-end
-
-conky.config = {
-    alignment = 'top_right',
-    background = true,
-    border_width = 0,
-    cpu_avg_samples = 4,
-    default_color = '00ffcc',
-    default_outline_color = '001a1a',
-    default_shade_color = '000000',
-    double_buffer = true,
-    draw_borders = false,
-    draw_graph_borders = false,
-    draw_outline = false,
-    draw_shades = false,
-    extra_newline = false,
-    font = 'JetBrains Mono:size=' .. sc(9),
-    gap_x = 20,                 -- right margin, px
-    gap_y = 10,
-    minimum_height = 5,
-    maximum_width = sc(370),
-    minimum_width = sc(370),
-    net_avg_samples = 2,
-    no_buffers = true,
-    out_to_console = false,
-    out_to_x = true,
-    own_window = true,
-    own_window_class = 'Conky',
-    own_window_type = 'normal',
-    own_window_transparent = false,
-    own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
-    own_window_colour = '0a0e1a',
-    own_window_argb_visual = true,
-    own_window_argb_value = 13,
-    short_units = true,
-    show_graph_scale = false,
-    show_graph_range = false,
-    update_interval = 2.0,
-    use_xft = true,
-    xftalpha = 1,
-    override_utf8_locale = true,
-    uppercase = false,
-}
-
-conky.text = [[
-${color 00ffcc}${font JetBrains Mono:bold:size=26}${time %H:%M:%S}${font}${color}
-${color 00aaff}${font JetBrains Mono:size=12}${time %A, %d %B %Y}${font}${color}
-${color 003344}${hr 1}${color}
-
-${color ff00ff}${font JetBrains Mono:bold:size=10}■ CPU${font}${color}  \
-${if_match ${cpu} > 80}${color ff00ff}${font JetBrains Mono:bold:size=13}${cpu}%${font}${color}\
-${else}${if_match ${cpu} > 50}${color 8844ff}${font JetBrains Mono:bold:size=13}${cpu}%${font}${color}\
-${else}${color 00ffcc}${font JetBrains Mono:bold:size=13}${cpu}%${font}${color}\
-${endif}${endif}
-${if_match ${cpu} > 80}${color ff00ff}${cpubar 6,355}${color}\
-${else}${if_match ${cpu} > 50}${color 8844ff}${cpubar 6,355}${color}\
-${else}${color 00ffcc}${cpubar 6,355}${color}\
-${endif}${endif}
-${color 888888}${font JetBrains Mono:size=7} 0  1  2  3  4  5  6  7  8  9 10 11${font}${color}
-${color 00ffcc}${cpugraph 22,50 00ffcc 001a33}${color}
-
-${color 003344}${hr 1}${color}
-
-${color ff00ff}${font JetBrains Mono:bold:size=10}■ GPU${font}${color}
-${color 00aaff}Load:${color} ${exec cat /sys/class/drm/card0/device/gpu_busy_percent}%  ${color 00aaff}Temp:${color} ${exec sensors amdgpu-pci-0700 | grep edge | awk '{print $2}'}
-${color 00aaff}Fan: ${color}${exec sensors amdgpu-pci-0700 | grep fan1 | awk '{print $2}'}  ${color 00aaff}Pwr:${color} ${exec sensors amdgpu-pci-0700 | grep PPT | awk '{print $2}'}
-${color 00aaff}VRAM:${color} ${color 00ffcc}${exec echo "scale=1; $(cat /sys/class/drm/card0/device/mem_info_vram_used)/1048576" | bc}M / ${exec echo "scale=0; $(cat /sys/class/drm/card0/device/mem_info_vram_total)/1048576" | bc}M${color}
-${color 00ffcc}${execbar echo "scale=2; $(cat /sys/class/drm/card0/device/mem_info_vram_used) * 100 / $(cat /sys/class/drm/card0/device/mem_info_vram_total)" | bc}
-
-${color 003344}${hr 1}${color}
-
-${color ff00ff}${font JetBrains Mono:bold:size=10}■ TEMP${font}${color}
-${color 00aaff}CPU:${color} ${acpitemp}°C  ${color 00aaff}GPU:${color} ${exec sensors amdgpu-pci-0700 | grep edge | awk '{print $2}'}  ${color 00aaff}MB:${color} ${exec sensors gigabyte_wmi-virtual-0 | grep 'temp1:' | awk '{print $2}'}
-
-${color 003344}${hr 1}${color}
-
-${color ff00ff}${font JetBrains Mono:bold:size=10}■ MEM${font}${color}  ${color 00ffcc}${mem} / ${memmax}${color} ${memperc}%
-${color 00ffcc}${membar 6,355}${color}
-${color 00aaff}SW:${color} ${swap}/${swapmax} ${swapperc}%
-
-${color 003344}${hr 1}${color}
-
-${color ff00ff}${font JetBrains Mono:bold:size=10}■ DISK${font}${color}
-${color 00aaff}/  (Samsung):${color} ${fs_used /}/${fs_size /} ${fs_used_perc /}%
-${color 00ffcc}${fs_bar 5,355 /}${color}
-${color 00aaff}R:${color} ${diskio_read}  ${color 00aaff}W:${color} ${diskio_write}
-${color 00ffcc}${diskiograph 20,35 00ffcc 001a33}${color}
-
-${color 003344}${hr 1}${color}
-
-${color ff00ff}${font JetBrains Mono:bold:size=10}■ NET${font}${color}
-${color 00aaff}eth0:${color} ${addr enp6s0}  ${color 00aaff}amn0:${color} ${addr amn0}
-${color 00aaff}↓${color} ${downspeedgraph enp6s0 20,50 00ffcc 001a33}  ${color 00aaff}${downspeed enp6s0}${color}
-${color 00aaff}↑${color} ${upspeedgraph enp6s0 20,50 ff00ff 001a33}  ${color 00aaff}${upspeed enp6s0}${color}
-${color 888888}${font JetBrains Mono:size=7}↓${totaldown enp6s0}  ↑${totalup enp6s0}${font}${color}
-
-${color 003344}${hr 1}${color}
-
-${color ff00ff}${font JetBrains Mono:bold:size=10}■ DOCKER${font}${color}
-${color 888888}${if_empty "${exec docker ps -q 2>/dev/null}"}no containers${else}${color 00ffcc}${exec docker ps --format "· {{.Name}} [{{.Status}}]" 2>/dev/null}${endif}${color}
-
-${color 003344}${hr 1}${color}
-
-${color ff00ff}${font JetBrains Mono:bold:size=10}■ SYS${font}${color}
-${color 00aaff}Up:${color} ${uptime_short}  ${color 00aaff}K:${color} ${kernel}
-${color 00aaff}Top CPU:${color} ${top name 1} ${top cpu 1}%  ${color 00aaff}RAM:${color} ${top_mem name 1} ${top_mem mem_res 1}
-${color 00aaff}Proc:${color} ${processes} total, ${running_processes} act
-
-${color 003344}${hr 1}${color}
-${color 004455}${font JetBrains Mono:size=8}░▒▓█ CYBERPUNK SYS MON █▓▒░${font}${color}
-]]
-
--- === scale fonts and bar/graph sizes for this monitor ===
-conky.text = conky.text:gsub("size=(%d+)",
-    function(n) return "size=" .. sc(tonumber(n)) end)
-conky.text = conky.text:gsub("graph%s+(%S+)%s+(%d+),(%d+)",
-    function(iface, h, w) return "graph " .. iface .. " " .. sc(tonumber(h)) .. "," .. sc(tonumber(w)) end)
-conky.text = conky.text:gsub("graph%s+(%d+),(%d+)",
-    function(h, w) return "graph " .. sc(tonumber(h)) .. "," .. sc(tonumber(w)) end)
-conky.text = conky.text:gsub("bar%s+(%d+),(%d+)",
-    function(h, w) return "bar " .. sc(tonumber(h)) .. "," .. sc(tonumber(w)) end)
-```
+Golden file: `/home/vi/Projects/personal-skills/references/cyberpunk-kde/cyberpunk.conf` — Read it and save VERBATIM as `~/.config/conky/cyberpunk.conf` (adapt hardware-specific values per the Hardware note below).
 
 > **Hardware note (adapt before applying):** `enp6s0`/`amn0` — NIC names (`ip -br link`), `amdgpu-pci-0700` — sensor chip (`sensors`), `gigabyte_wmi-virtual-0` — motherboard sensor (may be absent → drop that term), `card0` — DRM card (AMD), VRAM paths `/sys/class/drm/card0/device/mem_info_vram_{used,total}` (bytes; MB = `echo "scale=1; $(cat <path>)/1048576" | bc`), `/` labeled «Samsung» — cosmetic, `docker ps` — drop the DOCKER section without Docker. On NVIDIA use the nvidia driver sensor path instead of amdgpu.
 
@@ -385,60 +194,7 @@ Clock, CPU (total bar + per-core % + graph, color-coded by load), GPU (load/temp
 ### Launcher `start-cyberpunk.sh` (rightmost monitor + X-wait + click-through)
 Conky must appear on the RIGHTMOST monitor: never hardcode the index, never move windows with xdotool — use `-m N` with N detected at launch. The X-wait block is a **no-op on X11** (DISPLAY already set) and protects Wayland: the unit may start before Xwayland → conky dies with "can't open display" (coredump + drkonqi).
 
-```bash
-#!/bin/bash
-# Cyberpunk Conky — rightmost monitor. Wait for X at session start (Wayland):
-# unit may run before XWayland, conky then dies "can't open display".
-if [ -z "$DISPLAY" ]; then
-    for _ in $(seq 60); do
-        xsock=$(ls /tmp/.X11-unix/X* 2>/dev/null | head -1)
-        if [ -n "$xsock" ]; then
-            export DISPLAY=":${xsock##*/X}"
-            break
-        fi
-        sleep 0.5
-    done
-fi
-
-# Kill leftover conky (KDE session restore may have launched one)
-pkill -f 'conky -c.*cyberpunk' 2>/dev/null
-sleep 1
-
-# Find rightmost monitor index
-RIGHTMOST=$(xrandr --listmonitors 2>/dev/null | awk '
-    /:/ {
-        idx = $1
-        for (i=1; i<=NF; i++) {
-            if (match($i, /\+[0-9]+\+[0-9]+/)) {
-                split($i, pos, "+")
-                x = pos[2]
-                if (x+0 > max_x+0) { max_x = x; best = idx }
-            }
-        }
-    }
-    END { print best+0 }
-')
-[ -z "$RIGHTMOST" ] && RIGHTMOST=0
-
-conky -c ~/.config/conky/cyberpunk.conf -m "$RIGHTMOST" -d
-
-# Click-through: clear input shape (new window = fresh full shape) — runs after every start
-if [ -x "$HOME/.local/bin/xshape-input-clear" ]; then
-    CWID=""
-    for _ in $(seq 30); do
-        CWID=$(xdotool search --class '^Conky$' 2>/dev/null | head -1)
-        [ -n "$CWID" ] && break
-        CWID=$(xwininfo -root -tree 2>/dev/null | awk -F'"' '/"conky \(/{print $1; exit}' | tr -d ' ')
-        [ -n "$CWID" ] && break
-        sleep 0.2
-    done
-    if [ -n "$CWID" ]; then
-        "$HOME/.local/bin/xshape-input-clear" "$CWID"
-    else
-        echo "conky window not found, click-through NOT applied"
-    fi
-fi
-```
+Golden file: `/home/vi/Projects/personal-skills/references/cyberpunk-kde/start-cyberpunk.sh` — Read it and save as `~/.config/conky/start-cyberpunk.sh`, `chmod +x`.
 
 ### Autostart (systemd + .xprofile, NOT .desktop)
 NEVER use `~/.config/autostart/*.desktop` for Conky — KDE/systemd treats it as a separate entry → SECOND Conky instance (Gotcha 1). Two-layer defense against KDE session-restore duplicates (Gotcha 2): (1) `.xprofile` runs BEFORE ksmserver and strips Conky from `ksmserverrc`; (2) `start-cyberpunk.sh` pkills leftovers.
@@ -450,42 +206,10 @@ NEVER use `~/.config/autostart/*.desktop` for Conky — KDE/systemd treats it as
 [ -x ~/.config/conky/clean-session.sh ] && ~/.config/conky/clean-session.sh
 ```
 
-**`~/.config/conky/clean-session.sh`:** strips the `[LegacySession]` section from `~/.config/ksmserverrc` so KDE never restores Conky:
-```bash
-#!/bin/bash
-# ksmserver saves all running X11 clients (incl. Conky) at logout and restores
-# them BEFORE systemd services start => 2-3 Conky windows. Remove Conky from
-# the saved session here (runs from .xprofile, before ksmserver).
-KSMSERVER_RC="$HOME/.config/ksmserverrc"
-[ -f "$KSMSERVER_RC" ] || exit 0
-python3 -c "
-import re
-with open('$KSMSERVER_RC', 'r') as f:
-    content = f.read()
-new_content = re.sub(r'\[LegacySession:.*?\](?:\n(?!^\[).*)*', '', content, flags=re.MULTILINE)
-new_content = re.sub(r'\n{3,}', '\n\n', new_content)
-with open('$KSMSERVER_RC', 'w') as f:
-    f.write(new_content)
-"
-```
+**`~/.config/conky/clean-session.sh`** strips the `[LegacySession]` section from `~/.config/ksmserverrc` so KDE never restores Conky — golden file `/home/vi/Projects/personal-skills/references/cyberpunk-kde/clean-session.sh`: copy it to `~/.config/conky/clean-session.sh`.
 `chmod +x ~/.config/conky/clean-session.sh`
 
-**`~/.config/systemd/user/conky-cyberpunk.service`:**
-```ini
-[Unit]
-Description=Cyberpunk Conky system monitor
-After=graphical-session.target
-
-[Service]
-Type=forking
-ExecStartPre=/home/$USER/.config/conky/clean-session.sh
-ExecStart=/home/$USER/.config/conky/start-cyberpunk.sh
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=graphical-session.target
-```
+**`~/.config/systemd/user/conky-cyberpunk.service`:** golden file `/home/vi/Projects/personal-skills/references/cyberpunk-kde/conky-cyberpunk.service` — copy to that path. ExecStart uses the systemd `%h` specifier for `$HOME` (`$USER` is NOT expanded by systemd — verified; the deployed unit uses `/home/vi`).
 
 ### Startup policy: session start only (no watcher)
 Conky starts **ONCE at session start** (`conky-cyberpunk.service`, `WantedBy=graphical-session.target`), NOT restarted on monitor reconfiguration (plug/unplug, resolution, sleep/wake) — on either stack. After a topology change: `systemctl --user restart conky-cyberpunk` (re-detects rightmost monitor at start). A watcher (`screen-watcher.sh`, kscreen `configChanged` listener) existed in earlier revisions and was dropped — its DBus signal is unreliable on Plasma 6; remains in git history.
