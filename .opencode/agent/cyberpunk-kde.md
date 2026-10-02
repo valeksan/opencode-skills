@@ -116,13 +116,13 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 
 ## 9. Conky: cyberpunk system monitor
 
-**Works on both target stacks (verified):** Ubuntu 24.04 + KDE Plasma 5.27 (X11) and Ubuntu 26.04 + KDE Plasma 6.6 (Wayland/Xwayland). Stack-specific differences are called out inline (X-wait no-op on X11, screen watcher on Plasma 6).
+**Works on both target stacks (verified):** Ubuntu 24.04 + KDE Plasma 5.27 (X11) and Ubuntu 26.04 + KDE Plasma 6.6 (Wayland/Xwayland). Stack-specific differences are called out inline (X-wait no-op on X11). Startup policy on BOTH stacks: conky starts **once at session start** and is NOT restarted on monitor reconfiguration — the screen watcher is optional and disabled by default (see «Screen change watcher»).
 
 - Install: `sudo apt install -y conky-all fonts-jetbrainsmono xdotool bc libx11-dev libxext-dev` (+ `gcc` for the click-through tool: `command -v gcc || sudo apt install -y build-essential`)
 - Config: `~/.config/conky/cyberpunk.conf`
 - Launcher script: `~/.config/conky/start-cyberpunk.sh`
 - Click-through tool: `~/.local/bin/xshape-input-clear` (built from source, see below)
-- Systemd services: `~/.config/systemd/user/conky-cyberpunk.service` + `conky-screen-watcher.service`
+- Systemd services: `~/.config/systemd/user/conky-cyberpunk.service` (required) + `conky-screen-watcher.service` (OPTIONAL, disabled by default)
 
 ### Installation steps (in order)
 1. Install packages (incl. `xdotool`, `bc`, X11 headers for the click-through tool).
@@ -132,7 +132,7 @@ Image=file:///home/$USER/Pictures/Wallpapers/Cyberpunk/<img>.png
 5. Create `~/.config/conky/clean-session.sh` (see Autostart), `chmod +x`.
 6. Add `clean-session.sh` call to `~/.xprofile` (see Autostart).
 7. Create systemd services (see Autostart).
-8. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk conky-screen-watcher` (on Plasma 6 see the screen-watcher note — may stay disabled).
+8. `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk` — conky starts ONCE per user session. Do NOT enable `conky-screen-watcher` by default (policy: no restarts on monitor reconfiguration; after a topology change restart manually: `systemctl --user restart conky-cyberpunk`). The watcher is an optional add-on, see «Screen change watcher».
 9. Verify:
    - `pgrep -a conky` → exactly ONE process
    - `xdotool getwindowgeometry $(xdotool search --class "Conky" | head -1)` → rightmost monitor, right gap ≈20px
@@ -519,7 +519,11 @@ RestartSec=5
 WantedBy=graphical-session.target
 ```
 
-### Screen change watcher (monitor hotplug)
+### Screen change watcher (OPTIONAL — disabled by default)
+**Default policy (both reference systems): conky starts ONLY at session start** (`conky-cyberpunk.service` enabled, `WantedBy=graphical-session.target`) and is NOT restarted when monitors are reconfigured (plug/unplug, resolution change, sleep/wake). Trade-off: after a monitor topology change conky may sit on the old monitor — restart it manually: `systemctl --user restart conky-cyberpunk`.
+
+Enable the watcher below ONLY if you want conky to automatically return to the rightmost monitor after such changes. It restarts conky on every kscreen reconfiguration (debounced).
+
 KDE emits `org.kde.kscreen.Backend.configChanged` DBus signal on screen changes.
 A lightweight listener restarts Conky on the rightmost monitor after debounce.
 
@@ -558,7 +562,7 @@ RestartSec=5
 WantedBy=graphical-session.target
 ```
 
-Enable both: `systemctl --user daemon-reload && systemctl --user enable --now conky-cyberpunk conky-screen-watcher`
+Enable (only if you opt in to this behavior): `systemctl --user daemon-reload && systemctl --user enable --now conky-screen-watcher`
 
 **Plasma 6 note:** the kscreen `configChanged` DBus signal behaves differently on Plasma 6 — in the reference Ubuntu 26.04/Wayland setup the watcher is DISABLED (unit kept as `conky-screen-watcher.service.bak`, script renamed `screen-watcher.sh.disabled`); after monitor hotplug conky is restarted manually: `systemctl --user restart conky-cyberpunk`. Before enabling on Plasma 6, re-test the signal: `dbus-monitor --session "interface='org.kde.kscreen.Backend'"`.
 
@@ -596,7 +600,7 @@ Convert with: `echo "scale=1; $(cat <path>)/1048576" | bc` for MB.
 14. **Click-through resets on every conky start** (a new window gets a full input shape) — the launcher must re-run `~/.local/bin/xshape-input-clear`; the `xshape` CLI is absent from newer Ubuntu `x11-apps`, build the tool from source (see «Click-through»). `XShapeCombineRectangles` takes 9 args (the 9th is `ordering`).
 15. **Wayland session-start race**: the systemd user unit may start before Xwayland — conky dies with "can't open display" (coredump + drkonqi popup). The DISPLAY-wait block in the launcher fixes it; on X11 it is a no-op (DISPLAY already set).
 16. `${exec sensors ...}` and interface names are hardware-specific — adapt them (`sensors`, `ip -br link`, `lsblk`) or drop whole sections (see hardware note under the reference config), otherwise widgets show empty values.
-17. On Plasma 6 the kscreen screen-watcher DBus signal is unreliable — keep the watcher disabled until re-verified (see screen-watcher note).
+17. The screen watcher is DISABLED by default (policy: conky only at session start, manual `systemctl --user restart conky-cyberpunk` after monitor changes). If you opt in, the kscreen DBus signal is unreliable on Plasma 6 — re-test before enabling (see screen-watcher section).
 
 ## 10. Troubleshooting cheatsheet
 1. `plasma-apply-wallpaperimage` resets wallpaper plugin to image — reorder ops or re-apply slideshow after.
